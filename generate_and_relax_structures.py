@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
     print len(crystals)
 
-    with open('./test.pck','w') as f:
+    with open('./test.pck','wb') as f:
         pck.dump(crystals,f,protocol=pck.HIGHEST_PROTOCOL)
     #print crystals
     pool.close()
