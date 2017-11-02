@@ -23,19 +23,19 @@ def LJ_vcrelax(sites_z, crystal, isotropic_external_pressure=1e-2):
 
     # use ASE fire implementation to relax the internal d.o.g. to make sure atoms are not too close to each other
     # when optimizing with quippy's fire implemnetation (it crashes otherwise)
-    dyn = FIRE(crystal, logfile=None)
-    max_force = np.linalg.norm(crystal.get_forces(), axis=1).max()
-    max_stress = np.abs(crystal.get_stress()).max()
-    # V = crystal.get_volume()
-    # N = crystal.get_number_of_atoms()
-    # J = V ** (1 / 3.) * N ** (1 / 6.)
-    # ucf = UnitCellFilter(crystal, mask=[1, 1, 1, 1, 1, 1], cell_factor=V / J, hydrostatic_strain=False,
-    #                      constant_volume=False)
-    # dyn = FIRE(ucf, logfile=None)
+    # dyn = FIRE(crystal, logfile=None)
     # max_force = np.linalg.norm(crystal.get_forces(), axis=1).max()
 
+    V = crystal.get_volume()
+    N = crystal.get_number_of_atoms()
+    J = V ** (1 / 3.) * N ** (1 / 6.)
+    ucf = UnitCellFilter(crystal, mask=[1, 1, 1, 1, 1, 1], cell_factor=V / J, hydrostatic_strain=False,
+                         constant_volume=False)
+    dyn = FIRE(ucf, logfile=None)
+    max_force = np.linalg.norm(crystal.get_forces(), axis=1).max()
+    max_stress = np.abs(crystal.get_stress()).max()
     # the threshold here make sure that quippy will not exit with out of memory error
-    while max_force > 1e4:
+    while max_force > 1e1 and max_stress > 1e1:
         dyn.run(**{'fmax': 1e-6, 'steps': 1})
         max_force = np.linalg.norm(crystal.get_forces(), axis=1).max()
         max_stress = np.abs(crystal.get_stress()).max()

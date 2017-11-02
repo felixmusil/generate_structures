@@ -79,10 +79,11 @@ def get_standard_frame(frame,to_primitive=True,symprec=1e-5):
     :return: 
     '''
     from ase import Atoms
+    pbc = frame.get_pbc()
     (lattice, positions, numbers) = spg.standardize_cell(
                             frame, to_primitive=to_primitive,no_idealize=False,
                             symprec=symprec, angle_tolerance=-1.0)
-    std_atoms = Atoms(cell=lattice, scaled_positions=positions, numbers=numbers)
+    std_atoms = Atoms(cell=lattice, scaled_positions=positions, numbers=numbers,pbc=pbc)
     return std_atoms
 
 

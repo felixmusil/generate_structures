@@ -9,6 +9,7 @@ def generate_crystal_step_1(sites_z, seed, vdw_ratio, isotropic_external_pressur
     crystal, sg, wki = input2crystal(sites_z, seed, vdw_ratio)
 
     crystal = unskewCell(crystal)
+
     # suppress quippy optimization output
     with stdchannel_to_null():
         crystal = LJ_vcrelax(sites_z, crystal, isotropic_external_pressure=isotropic_external_pressure)
@@ -33,7 +34,7 @@ if __name__ == '__main__':
     vdw_ratio = 1.5
     sites_z = [14]
 
-    inputs = [[sites_z,seed,vdw_ratio] for seed in range(100,10000)]
+    inputs = [[sites_z,seed,vdw_ratio] for seed in range(500000)]
 
     crystals = pool.map(generate_crystal_step_1_wrapper,inputs)
 
