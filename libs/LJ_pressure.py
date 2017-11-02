@@ -44,13 +44,13 @@ def LJ_vcrelax(sites_z, crystal, isotropic_external_pressure=1e-2):
     minimiser = Minim(crystal, relax_positions=True, relax_cell=True, logfile='-', method='fire',
                       external_pressure=pressure_tensor, eps_guess=0.2, fire_dt0=0.1, fire_dt_max=1.0, use_precond=None)
 
-    minimiser.run(fmax=5e-2, steps=1e6)
+    minimiser.run(fmax=5e-2, steps=5e4)
 
     # 2nd round of vc relax without external isotropic pressure
     minimiser = Minim(crystal, relax_positions=True, relax_cell=True, logfile='-', method='fire',
                       external_pressure=None, eps_guess=0.2, fire_dt0=0.1, fire_dt_max=1.0, use_precond=None)
 
-    minimiser.run(fmax=1e-6, steps=1e6)
+    minimiser.run(fmax=1e-6, steps=5e4)
 
     crystal.wrap()
 
