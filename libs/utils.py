@@ -1,52 +1,110 @@
+import contextlib
+import os
+
 import numpy as np
-import numpy.random as npr
+import spglib as spg
 
 
+def s2hms(time):
+    m = time // 60
+    s = int(time % 60)
+    h = int(m // 60)
+    m = int(m % 60)
+    return '{:02d}:{:02d}:{:02d} (h:m:s)'.format(h,m,s)
 
-def getCellParam(cellparam, cellFilling, Rs, Na, bravaisLattice):
+def qp2ase(qpatoms):
+    from ase import Atoms as aseAtoms
+    positions = qpatoms.get_positions()
+    cell = qpatoms.get_cell()
+    numbers = qpatoms.get_atomic_numbers()
+    pbc = qpatoms.get_pbc()
+    atoms = aseAtoms(numbers=numbers, cell=cell, positions=positions, pbc=pbc)
+
+    for key, item in qpatoms.arrays.iteritems():
+        if key in ['positions', 'numbers', 'species', 'map_shift', 'n_neighb']:
+            continue
+        atoms.set_array(key, item)
+
+    return atoms
+
+def ase2qp(aseatoms):
+    from quippy import Atoms as qpAtoms
+    positions = aseatoms.get_positions()
+    cell = aseatoms.get_cell()
+    numbers = aseatoms.get_atomic_numbers()
+    pbc = aseatoms.get_pbc()
+    return qpAtoms(numbers=numbers,cell=cell,positions=positions,pbc=pbc)
+
+
+def atoms2np(crystal):
+    lattice = crystal.get_cell()
+    positions = crystal.get_positions()
+    numbers = crystal.get_atomic_numbers()
+    return numbers,positions,lattice
+def np2atoms(numbers,positions,lattice,type='ase'):
+    if type == 'ase':
+        from ase import Atoms as aseAtoms
+        crystal = aseAtoms(numbers=numbers,cell=lattice,positions=positions)
+    elif type == 'quippy':
+        from quippy import Atoms as qpAtoms
+        crystal = qpAtoms(numbers=numbers,cell=lattice,positions=positions)
+    else:
+        raise TypeError('Not recognised input type {}'.format(type))
+    return crystal
+
+
+def unskewCell(frame):
+    lattice = frame.get_cell()
+    lengths = frame.get_cell_lengths_and_angles()[:3]
+    angles = np.cos(frame.get_cell_lengths_and_angles()[3:]*np.pi / 180.)
+
+    max_angle2ij = {0:(0,1),1:(0,2),2:(1,2)}
+    for max_angle in np.where(np.abs(angles)>0.5)[0]:
+
+        i,j = max_angle2ij[max_angle]
+        if lengths[i] > lengths[j]:
+            i, j = j, i
+        lattice[j,:] = lattice[j,:] - np.round(angles[max_angle]) * lattice[i,:]
+    cc = frame.copy()
+    cc.set_cell(lattice)
+    cc.wrap()
+    return cc
+
+def get_standard_frame(frame,to_primitive=True,symprec=1e-5):
     '''
-    Take a cellparam guess and return cellparam compatible with
-    :param cellparam:  
-    :param cellFilling: 
-    :param Rs: 
-    :param Na: 
-    :param bravaisLattice: 
+    Standardize the frame using spglib
+    :param frame: 
+    :param to_primitive: 
+    :param symprec: 
     :return: 
     '''
-    import numpy as np
+    from ase import Atoms
+    (lattice, positions, numbers) = spg.standardize_cell(
+                            frame, to_primitive=to_primitive,no_idealize=False,
+                            symprec=symprec, angle_tolerance=-1.0)
+    std_atoms = Atoms(cell=lattice, scaled_positions=positions, numbers=numbers)
+    return std_atoms
 
-    V_tot = 0
-    for r, n in zip(Rs, Na):
-        V_tot += n * 4 / 3. * np.pi * r ** 3
-    # total volume filled by the atoms divided by the filling ratio (using Van der Walls radius, this ratio is usually 1 since it already takes into account bounds)
-    fac = V_tot / cellFilling
-    a, b, c, alpha, beta, gamma = cellparam
 
-    d2r = np.pi / 180.
-    if bravaisLattice in ['cubic F', 'cubic I', 'cubic P']:
-        a = np.power(fac, 1 / 3.)
-        alpha = beta = gamma = 90.
-        b = c = a
-    elif bravaisLattice in ['hexagonal P', 'trigonal P', 'trigonal R']:
-        a = np.sqrt(fac / c * np.sqrt(2 / 3.))
-        alpha = beta = 90.
-        gamma = 120.
-        b = a
-    elif bravaisLattice in ['tetragonal I', 'tetragonal P']:
-        a = np.sqrt(fac / c)
-        alpha = beta = gamma = 90.
-        b = a
-    elif bravaisLattice in ['orthorhombic A', 'orthorhombic C', 'orthorhombic F', 'orthorhombic I', 'orthorhombic P']:
-        a = fac / b / c
-        alpha = beta = gamma = 90.
-    elif bravaisLattice in ['monoclinic C', 'monoclinic P', 'orthorhombic A']:
-        a = fac / b / c / np.sqrt(1 - np.cos(beta * d2r) ** 2)
-        alpha = gamma = 90.
-    elif bravaisLattice == 'triclinic P':
-        ca, cb, cg = np.cos(alpha * d2r), np.cos(beta * d2r), np.cos(gamma * d2r)
-        ee = b * c * np.sqrt(1 - ca ** 2 - cb ** 2 - cg ** 2 + 2 * ca * cb * cg)
-        a = fac / ee
-    else:
-        raise Exception('Error with the Bravais lattice')
+@contextlib.contextmanager
+def stdchannel_to_null(disable=False):
+    # see http://www.greghaskins.com/archive/python-forcibly-redirect-stdout-stderr-from-extension-modules
+    # for more details
+    if not disable:
+        null_fds = [os.open(os.devnull, os.O_RDWR) for x in xrange(2)]
+        # save the current file descriptors to a tuple
+        save = os.dup(1), os.dup(2)
+        # put /dev/null fds on 1 and 2
+        os.dup2(null_fds[0], 1)
+        os.dup2(null_fds[1], 2)
 
-    return [a, b, c, alpha, beta, gamma]
+    yield
+
+    if not disable:
+        os.dup2(save[0], 1)
+        os.dup2(save[1], 2)
+        # close the temporary fds
+        os.close(null_fds[0])
+        os.close(null_fds[1])
+        os.close(save[0])
+        os.close(save[1])

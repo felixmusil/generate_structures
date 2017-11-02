@@ -94,7 +94,7 @@ class MPIPool(BasePool):
         if callback is not None:
             callback()
 
-    def map(self, func, iterable, callback=None):
+    def map(self, func, iterable, callback=None,disable_pbar=False):
         """
         Evaluate a function at various points in parallel. Results are
         returned in the requested order (i.e. y[i] = f(x[i])).
@@ -112,7 +112,7 @@ class MPIPool(BasePool):
         tasklist = [(tid, (func, arg)) for tid, arg in enumerate(iterable)]
         resultlist = [None] * len(tasklist)
         pending = len(tasklist)
-        pbar = tqdm(total=pending,desc='Pool mapping',ascii=True)
+        pbar = tqdm(total=pending,desc='Pool mapping',ascii=True,disable=disable_pbar)
         while pending:
             if workerset and tasklist:
                 worker = workerset.pop()
