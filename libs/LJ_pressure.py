@@ -1,6 +1,6 @@
 from __future__ import division
 import numpy as np
-from utils import np2atoms,atoms2np,ase2qp,qp2ase
+from utils import ase2qp,qp2ase
 
 from raw_data import z2Covalentradius
 

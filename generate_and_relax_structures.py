@@ -33,7 +33,7 @@ if __name__ == '__main__':
     vdw_ratio = 1.5
     sites_z = [14]
 
-    inputs = [[sites_z,seed,vdw_ratio] for seed in range(100,1000)]
+    inputs = [[sites_z,seed,vdw_ratio] for seed in range(100,10000)]
 
     crystals = pool.map(generate_crystal_step_1_wrapper,inputs)
 
