@@ -3,7 +3,7 @@ import sys
 from libs.utils import unskewCell,get_standard_frame,stdchannel_to_null
 from libs.input_structure import input2crystal
 from libs.LJ_pressure import LJ_vcrelax
-
+import cPickle as pck
 
 def generate_crystal_step_1(sites_z, seed, vdw_ratio, isotropic_external_pressure=1e-2, symprec=1e-5):
     crystal, sg, wki = input2crystal(sites_z, seed, vdw_ratio)
@@ -38,5 +38,8 @@ if __name__ == '__main__':
     crystals = pool.map(generate_crystal_step_1_wrapper,inputs)
 
     print len(crystals)
+
+    with open('../test.pck','w') as f:
+        pck.dump(crystals,f,protocol=pck.HIGHEST_PROTOCOL)
     #print crystals
     pool.close()
