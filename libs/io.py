@@ -49,7 +49,11 @@ class Frame_Dataset_h5(object):
 
         with h5py.File(self.fname, 'a' ,libver='latest') as f:
             for crystal ,inp_dict in zip(crystals ,inputs):
-                self.dump_frame(f ,crystal ,inp_dict)
+                try:
+                    self.dump_frame(f ,crystal ,inp_dict)
+                except:
+                    print 'frame {} with input was not saved'.format(crystal,inp_dict)
+                    pass
 
     def load_frame(self  ,name ,frame_type='quippy'):
         data = {}

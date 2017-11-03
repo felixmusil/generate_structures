@@ -7,7 +7,7 @@ import cPickle as pck
 import numpy as np
 from libs.io import Frame_Dataset_h5
 from tqdm import tqdm
-from time import time
+from time import time,ctime
 from Pool.logger import log
 
 def generate_crystal_step_1(sites_z, seed, vdw_ratio, isotropic_external_pressure=1e-2, symprec=1e-5):
@@ -17,9 +17,12 @@ def generate_crystal_step_1(sites_z, seed, vdw_ratio, isotropic_external_pressur
 
     crystal = LJ_vcrelax(crystal,isotropic_external_pressure,debug=False)
 
-    crystal = get_standard_frame(crystal, to_primitive=False, symprec=symprec)
+    if crystal is None:
+        return None
+    else:
+        crystal = get_standard_frame(crystal, to_primitive=False, symprec=symprec)
 
-    return crystal
+        return crystal
 
 def generate_crystal_step_1_wrapper(kwargs):
     return generate_crystal_step_1(**kwargs)
@@ -39,10 +42,10 @@ if __name__ == '__main__':
     sites_z = [14]
 
 
-    print 'Starting '
+    print 'Starting '+ctime()
     print 'Dumping structures to {}'.format(fout.fname)
     start = time()
-    strides = np.arange(10)*100000 + int(1e7)
+    strides = np.arange(20)*50000 + int(2e7)
     # strides = np.arange(10) * 10 + int(1e7)
     for st,nd in zip(strides[:-1],strides[1:]):
         print 'Seed from {} to {}'.format(st,nd)
