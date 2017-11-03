@@ -48,13 +48,14 @@ if __name__ == '__main__':
     strides = np.arange(20)*50000 + int(2e7)
     # strides = np.arange(10) * 10 + int(1e7)
     for st,nd in zip(strides[:-1],strides[1:]):
-        print 'Seed from {} to {}'.format(st,nd)
+        print 'Seed from {} to {}  {}'.format(st,nd,s2hms(time() - start))
         inputs = [{'sites_z':sites_z,'seed':seed,'vdw_ratio':vdw_ratio} for seed in range(st,nd)]
 
         crystals = pool.map(generate_crystal_step_1_wrapper,inputs,disable_pbar=False)
 
+        print 'Dump to file {}'.format(s2hms(time()-start))
         fout.dump_frames(crystals,inputs)
-
+        print 'Dumped to file {}'.format(s2hms(time() - start))
 
     print 'Elapsed time: {}'.format(s2hms(time()-start))
     pool.close()
