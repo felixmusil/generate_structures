@@ -30,20 +30,19 @@ if __name__ == '__main__':
         pool.wait()
         sys.exit(0)
 
-    fname = './test.h5'
+    fname = './relaxed_structures_step1.h5'
     fout = Frame_Dataset_h5(fname)
 
     vdw_ratio = 1.5
     sites_z = [14]
 
-    strides = np.arange(10)*10
-    for st,nd in zip(strides[:-1],strides[1:]):
-        print '################',st,nd
+    strides = np.arange(1000)*1000
+    for st,nd in tqdm(zip(strides[:-1],strides[1:])):
+
         inputs = [{'sites_z':sites_z,'seed':seed,'vdw_ratio':vdw_ratio} for seed in range(st,nd)]
 
         crystals = pool.map(generate_crystal_step_1_wrapper,inputs,disable_pbar=True)
 
-        print len(crystals)
         fout.dump_frames(crystals,inputs)
-    #print crystals
+
     pool.close()
