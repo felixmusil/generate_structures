@@ -8,7 +8,7 @@ import numpy as np
 from libs.io import Frame_Dataset_h5
 from tqdm import tqdm
 from time import time
-
+from Pool.logger import log
 
 def generate_crystal_step_1(sites_z, seed, vdw_ratio, isotropic_external_pressure=1e-2, symprec=1e-5):
     crystal, sg, wki = input2crystal(sites_z, seed, vdw_ratio)
@@ -37,17 +37,21 @@ if __name__ == '__main__':
 
     vdw_ratio = 1.5
     sites_z = [14]
-    print 'Starting '
-    start = time()
-    strides = np.arange(1000)*1000
-    for st,nd in zip(strides[:-1],strides[1:]):
 
+
+    print 'Starting '
+    print 'Dumping structures to {}'.format(fout.fname)
+    start = time()
+    strides = np.arange(1000)*1000 + 1e7
+    # strides = np.arange(10) * 10 + int(1e7)
+    for st,nd in zip(strides[:-1],strides[1:]):
+        print 'Seed from {} to {}'.format(st,nd)
         inputs = [{'sites_z':sites_z,'seed':seed,'vdw_ratio':vdw_ratio} for seed in range(st,nd)]
 
-        crystals = pool.map(generate_crystal_step_1_wrapper,inputs,disable_pbar=True)
+        crystals = pool.map(generate_crystal_step_1_wrapper,inputs,disable_pbar=False)
 
         fout.dump_frames(crystals,inputs)
 
-        print '{}\t {} {}'.format(s2hms(time()-start),st,np)
 
+    print 'Elapsed time: {}'.format(s2hms(time()-start))
     pool.close()
