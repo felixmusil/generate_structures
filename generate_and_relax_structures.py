@@ -42,7 +42,7 @@ if __name__ == '__main__':
     print 'Starting '
     print 'Dumping structures to {}'.format(fout.fname)
     start = time()
-    strides = np.arange(1000)*1000 + 1e7
+    strides = np.arange(1000)*1000 + int(1e7)
     # strides = np.arange(10) * 10 + int(1e7)
     for st,nd in zip(strides[:-1],strides[1:]):
         print 'Seed from {} to {}'.format(st,nd)
