@@ -9,9 +9,8 @@ def generate_crystal_step_1(sites_z, seed, vdw_ratio, isotropic_external_pressur
     crystal, sg, wki = input2crystal(sites_z, seed, vdw_ratio)
 
     crystal = unskewCell(crystal)
-    # suppress quippy optimization output
 
-    crystal = LJ_vcrelax(sites_z, crystal, isotropic_external_pressure=isotropic_external_pressure)
+    crystal = LJ_vcrelax(crystal,isotropic_external_pressure,debug=True)
 
     crystal = get_standard_frame(crystal, to_primitive=False, symprec=symprec)
 
@@ -31,7 +30,8 @@ if __name__ == '__main__':
     vdw_ratio = 1.5
     sites_z = [14]
 
-    inputs = [[sites_z,seed,vdw_ratio] for seed in range(100)]
+
+    inputs = [[sites_z,seed,vdw_ratio] for seed in [29]]
 
     for it,inp in enumerate(inputs):
         print '############################'
