@@ -20,13 +20,12 @@ def generate_crystal_step_1(sites_z, seed, vdw_ratio, isotropic_external_pressur
 
     crystal = LJ_vcrelax(crystal,isotropic_external_pressure,debug=False)
 
-    if crystal is None:
-        return None
-    else:
+
+    try:
         crystal = get_standard_frame(crystal, to_primitive=False, symprec=symprec)
-
         return crystal
-
+    except:
+        return  None
 
 def generate_crystal_step_1_wrapper(kwargs):
     crystal = generate_crystal_step_1(**kwargs)
