@@ -115,7 +115,7 @@ class DescriptorWriter(object):
         self.bname = bname
 
     def dump_descriptor(self,desc,frame_name,f):
-
+        pass
 
 
 def check_suffix(fileName):
