@@ -2,10 +2,15 @@ import h5py
 import numpy as np
 from time import ctime
 import os
+import itertools
+from quippy import Atoms as qpAtoms
+from ase import Atoms as aseAtoms
+from multiprocessing import Pool
+from tqdm import tqdm_notebook
 
 class Frame_Dataset_h5(object):
-    def __init__(self,fname,mode='a',swmr_mode=True ,bname="frame",debug=False):
-        super(Frame_Dataset_h5, self).__init__()
+    def __init__(self,fname,mode='a',swmr_mode=True ,bname="frame",debug=False,disable_pbar=False):
+        # super(Frame_Dataset_h5, self).__init__()
         if mode == 'r':
             self.fname = fname
             self.f = h5py.File(self.fname, 'r', libver='latest')
@@ -24,7 +29,7 @@ class Frame_Dataset_h5(object):
 
         self.counter = 0
         self.frame_fields = ["cell" ,"positions" ,"numbers" ,"pbc"]
-
+        self.disable_pbar = disable_pbar
         self.bname = bname
         self.names = self.get_names()
 
@@ -45,10 +50,14 @@ class Frame_Dataset_h5(object):
         return names
 
     def dump_frame(self  ,crystal ,inp_dict=None,f = None):
+        to_close = False
         if f is None and self.isOpen is True:
             f = self.f
+
         elif f is None and self.isOpen is False:
-            f = self.open(mode='a')
+            self.open(mode='a')
+            f = self.f
+            to_close = True
 
         name = self.bname + '_{}'.format(self.counter)
         self.names.append(name)
@@ -65,9 +74,8 @@ class Frame_Dataset_h5(object):
                 sgrp.create_dataset(name, data=np.array(val))
         self.counter += 1
 
-        if f is None and self.isOpen is False:
-            f.close()
-
+        if to_close:
+            self.close()
 
     def dump_frames(self ,crystals ,inputs=None):
         if inputs is None:
@@ -81,44 +89,48 @@ class Frame_Dataset_h5(object):
                     print 'frame {} with input was not saved'.format(crystal,inp_dict)
                     pass
 
-    def load_frame(self  ,name ,frame_type='quippy'):
+    def load_frame(self  ,name ,frame_type='quippy',f = None):
+        to_close = False
+        if f is None and self.isOpen is True:
+            f = self.f
+        elif f is None and self.isOpen is False:
+            self.open(mode='r')
+            f = self.f
+            to_close = True
+
         data = {}
-        with h5py.File(self.fname, "r" ,libver='latest', swmr=self.swmr_mode) as f:
-            for field in self.frame_fields:
-                data[field] = f[name][field].value
+        for field in self.frame_fields:
+            data[field] = f[name][field].value
+
         if frame_type == 'quippy':
-            from quippy import Atoms as qpAtoms
             frame = qpAtoms(**data)
         elif frame_type == 'ase':
-            from ase import Atoms as aseAtoms
             frame = aseAtoms(**data)
+
+        if to_close:
+            self.close()
+
         return frame
 
-    def load_frames(self  ,names=None ,frame_type='quippy'):
+    def load_frames(self  ,names=None ,frame_type='quippy',nprocess=1):
         if names is None:
             names = self.get_names()
-
-        data = {}
-        with h5py.File(self.fname, "r" ,libver='latest', swmr=self.swmr_mode) as f:
-            for name in names:
-                data[name] = {}
-                for field in self.frame_fields:
-                    data[name][field] = f[name][field].value
         frames = {}
-        if frame_type == 'quippy':
-            from quippy import Atoms as qpAtoms
-            for name in names:
-                frames[name] = qpAtoms(**data[name])
-        elif frame_type == 'ase':
-            from ase import Atoms as aseAtoms
-            for name in names:
-                frames[name] = aseAtoms(**data[name])
+        with h5py.File(self.fname, "r" ,libver='latest', swmr=self.swmr_mode) as f:
+            for name in tqdm_notebook(names,desc='Load frames',disable=self.disable_pbar):
+                frames[name] = self.load_frame(name,frame_type=frame_type,f=f)
 
         return frames
 
+
+descriptor_parameters = {
+    'soap':['nmax','lmax','cutoff','gaussian_width',
+            'centerweight','cutoff_transition_width','nocenters','exclude','chem_channels']
+}
+
 class DescriptorWriter(object):
-    def __init__(self, fname, mode='a', swmr_mode=True, bname="soap"):
-        super(DescriptorWriter, self).__init__()
+    def __init__(self, fname, mode='a', swmr_mode=True, bname="soap",debug=False,disable_pbar=False):
+        super(self.__class__, self).__init__()
         if mode == 'a':
             self.fname = fname
             with h5py.File(self.fname, 'r', libver='latest') as f:
@@ -133,10 +145,173 @@ class DescriptorWriter(object):
             self.counter = 0
         self.mode = mode
         self.bname = bname
+        self.disable_pbar = disable_pbar
+        self.isOpen = False
+        self.debug = debug
 
-    def dump_descriptor(self,desc,frame_name,f):
-        pass
+    def open(self,mode='a'):
+        self.f = h5py.File(self.fname, mode ,libver='latest')
+        if self.debug:
+            print 'Opening {}'.format(self.fname)
+        self.isOpen = True
+    def close(self):
+        self.f.close()
+        if self.debug:
+            print 'Closing {}'.format(self.fname)
+        self.isOpen = False
 
+    def get_names(self):
+        with h5py.File(self.fname, 'r', libver='latest') as f:
+            names = f.keys()
+        return names
+
+    def dump(self,desc,frame_name,input_param,f=None):
+        to_close = False
+        if f is None and self.isOpen is True:
+            f = self.f
+        elif f is None and self.isOpen is False:
+            self.open(mode=self.mode)
+            f = self.f
+            to_close = True
+        if self.mode == 'a':
+            grp = f[frame_name]
+        elif self.mode == 'w':
+            grp = f.create_group(frame_name)
+
+        iis = [-1]
+        for name in grp.keys():
+            if self.bname in name:
+                ii = int(name.split('_')[-1])
+                iis.append(ii)
+        desc_name = self.bname + '_{}'.format(int(np.max(iis)+1))
+
+        desc_grp = grp.create_group(desc_name)
+        desc_grp.attrs['created'] = ctime()
+        for name,val in input_param.iteritems():
+            desc_grp.attrs[name] = val
+
+        if self.bname == 'soap':
+            if input_param['chem_channels'] is False:
+                for name,val in desc.iteritems():
+                    desc_grp.create_dataset(name,data=val)
+            elif input_param['chem_channels'] is True:
+                for name,center in desc.iteritems():
+                    subgrp = desc_grp.create_group(name)
+                    for ab,pA in center.iteritems():
+                        subgrp.create_dataset(ab,data=pA)
+        else:
+            raise NotImplementedError('Descriptor {} is not implemented'.format(self.bname))
+
+        if to_close:
+            self.close()
+
+    def dumps(self,descs,frame_names,input_params):
+        if isinstance(input_params,dict):
+            input_params_ = [input_params for it in range(len(descs))]
+        else:
+            input_params_ = input_params
+        with h5py.File(self.fname,mode=self.mode,libver='latest') as f:
+            for desc,frame_name,input_param in tqdm_notebook(zip(descs,frame_names,input_params_),
+                                                             desc='Dump desc',disable=self.disable_pbar):
+                self.dump(desc,frame_name,input_param,f)
+
+class DescriptorReader(object):
+    def __init__(self, fname, bname="soap",debug=False):
+        super(self.__class__, self).__init__()
+        self.mode = 'r'
+        self.fname = fname
+        with h5py.File(self.fname, self.mode, libver='latest') as f:
+            self.swmr_mode = f.swmr_mode
+            self.frame_names = f.keys()
+        self.debug = debug
+        self.bname = bname
+        self.isOpen = False
+
+    def open(self,mode='r'):
+        self.f = h5py.File(self.fname, mode ,libver='latest')
+        if self.debug:
+            print 'Opening {}'.format(self.fname)
+        self.isOpen = True
+    def close(self):
+        self.f.close()
+        if self.debug:
+            print 'Closing {}'.format(self.fname)
+        self.isOpen = False
+
+    def load(self,frame_name,input_param,f=None):
+        to_close = False
+        if f is None and self.isOpen is True:
+            f = self.f
+        elif f is None and self.isOpen is False:
+            self.open(mode=self.mode)
+            f = self.f
+            to_close = True
+
+        grp = f[frame_name]
+
+        # there are no descriptor of the bname kind in this frame
+        if self.bname not in grp.keys():
+            return None
+
+        desc_name = None
+        for name in grp:
+            if self.bname in name:
+                aaa = []
+                for inp_name,val in input_param.iteritems():
+                    if input_param in descriptor_parameters[self.bname]:
+                        try:
+                            if isinstance(val,list) or isinstance(val,np.ndarray):
+                                if np.allclose(val,grp[name].attrs[inp_name]):
+                                    aaa.append(True)
+                                else:
+                                    aaa.append(False)
+                            elif isinstance(val,int) or isinstance(val,float) or isinstance(val,str):
+                                if val == grp[name].attrs[inp_name]:
+                                    aaa.append(True)
+                                else:
+                                    aaa.append(False)
+                            else:
+                                raise ValueError(''.format(val))
+                        except KeyError:
+                            pass
+                if np.all(aaa):
+                    desc_name = name
+                    break
+
+        try:
+            desc_h5 = grp[desc_name]
+        except TypeError:
+            raise ValueError('Input parameters {} do not match descriptors in {}'.format(input_param,frame_name))
+
+        desc = {}
+
+        if self.bname == 'soap':
+            if input_param['chem_channels'] is False:
+                for name,p in desc_h5.iteritems():
+                    desc[name] = p.value
+            elif input_param['chem_channels'] is True:
+                for name,center in desc_h5.iteritems():
+                    desc[name] = {}
+                    for ab,pA in center.iteritems():
+                        desc[name][ab] = pA.value
+        else:
+            raise NotImplementedError('Descriptor {} is not implemented'.format(self.bname))
+
+        if to_close:
+            self.close()
+
+        return desc
+
+    def loads(self, frame_names, input_params):
+        if isinstance(input_params,dict):
+            input_params_ = [input_params for it in range(len(frame_names))]
+        else:
+            input_params_ = input_params
+        descs = {}
+        with h5py.File(self.fname, mode=self.mode, libver='latest',swmr=self.swmr_mode) as f:
+            for frame_name,input_param in zip(frame_names,input_params_):
+                descs[frame_name] = self.load(frame_name,input_param,f)
+        return descs
 
 def check_suffix(fileName):
     fname = os.path.abspath(fileName)
