@@ -12,6 +12,7 @@ from Pool.logger import log,_VERBOSE
 from Pool.base_pool import BasePool
 from tqdm import   tqdm
 
+
 def _dummy_callback(x):
     pass
 
@@ -61,7 +62,7 @@ class MPIPool(BasePool):
                 return True
         return False
 
-    def wait(self, callback=None):
+    def wait(self, callbacks=None):
         """
         Make the workers listen to the master.
         """
@@ -91,8 +92,9 @@ class MPIPool(BasePool):
 
             self.comm.ssend(result, self.master, status.tag)
 
-        if callback is not None:
-            callback()
+        if callbacks is not None:
+            for callback in callbacks:
+                callback()
 
     def map(self, func, iterable, callback=None,disable_pbar=False):
         """

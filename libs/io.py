@@ -4,22 +4,23 @@ from time import ctime
 import os
 
 class Frame_Dataset_h5(object):
-    def __init__(self,fname,mode='a',swmr_mode=True ,bname="frame"):
-        super(Frame_Dataset_h5,self).__init__()
+    def __init__(self,fname,mode='a',swmr_mode=True ,bname="frame",debug=False):
+        super(Frame_Dataset_h5, self).__init__()
         if mode == 'r':
-            fname = fname
-            self.f = h5py.File(fname, 'r', libver='latest')
+            self.fname = fname
+            self.f = h5py.File(self.fname, 'r', libver='latest')
             self.swmr_mode = self.f.swmr_mode
             self.f.close()
         else:
-            fname = check_suffix(fname)
-            self.f = h5py.File(fname, 'a', libver='latest')
+            self.fname = check_suffix(fname)
+            self.f = h5py.File(self.fname, 'a', libver='latest')
             self.f.swmr_mode = swmr_mode
             self.swmr_mode = swmr_mode
 
             self.f.close()
 
-        self.fname = fname
+        self.isOpen = False
+        self.debug = debug
 
         self.counter = 0
         self.frame_fields = ["cell" ,"positions" ,"numbers" ,"pbc"]
@@ -27,12 +28,28 @@ class Frame_Dataset_h5(object):
         self.bname = bname
         self.names = self.get_names()
 
+    def open(self,mode):
+        self.f = h5py.File(self.fname, mode ,libver='latest')
+        if self.debug:
+            print 'Opening {}'.format(self.fname)
+        self.isOpen = True
+    def close(self):
+        self.f.close()
+        if self.debug:
+            print 'Closing {}'.format(self.fname)
+        self.isOpen = False
+
     def get_names(self):
         with h5py.File(self.fname, 'r', libver='latest') as f:
             names = f.keys()
         return names
 
-    def dump_frame(self ,f ,crystal ,inp_dict=None):
+    def dump_frame(self  ,crystal ,inp_dict=None,f = None):
+        if f is None and self.isOpen is True:
+            f = self.f
+        elif f is None and self.isOpen is False:
+            f = self.open(mode='a')
+
         name = self.bname + '_{}'.format(self.counter)
         self.names.append(name)
         grp = f.create_group(name)
@@ -48,6 +65,9 @@ class Frame_Dataset_h5(object):
                 sgrp.create_dataset(name, data=np.array(val))
         self.counter += 1
 
+        if f is None and self.isOpen is False:
+            f.close()
+
 
     def dump_frames(self ,crystals ,inputs=None):
         if inputs is None:
@@ -56,7 +76,7 @@ class Frame_Dataset_h5(object):
         with h5py.File(self.fname, 'a' ,libver='latest') as f:
             for crystal ,inp_dict in zip(crystals ,inputs):
                 try:
-                    self.dump_frame(f ,crystal ,inp_dict)
+                    self.dump_frame(crystal ,inp_dict,f)
                 except:
                     print 'frame {} with input was not saved'.format(crystal,inp_dict)
                     pass
