@@ -4,17 +4,23 @@ from time import ctime
 import os
 
 class Frame_Dataset_h5(object):
-    def __init__(self,fname ,swmr_mode=True ,bname="frame"):
-        fname = check_suffix(fname)
+    def __init__(self,fname,mode='a',swmr_mode=True ,bname="frame"):
+        super(Frame_Dataset_h5,self).__init__()
+        if mode == 'r':
+            fname = fname
+            self.f = h5py.File(fname, 'r', libver='latest')
+            self.swmr_mode = self.f.swmr_mode
+            self.f.close()
+        else:
+            fname = check_suffix(fname)
+            self.f = h5py.File(fname, 'a', libver='latest')
+            self.f.swmr_mode = swmr_mode
+            self.swmr_mode = swmr_mode
+
+            self.f.close()
 
         self.fname = fname
 
-        self.f = h5py.File(fname, 'a' ,libver='latest')
-        self.f.swmr_mode = swmr_mode
-
-        self.f.close()
-
-        self.swmr_mode = swmr_mode
         self.counter = 0
         self.frame_fields = ["cell" ,"positions" ,"numbers" ,"pbc"]
 
@@ -89,6 +95,26 @@ class Frame_Dataset_h5(object):
                 frames[name] = aseAtoms(**data[name])
 
         return frames
+
+class DescriptorWriter(object):
+    def __init__(self, fname, mode='a', swmr_mode=True, bname="soap"):
+        super(DescriptorWriter, self).__init__()
+        if mode == 'a':
+            self.fname = fname
+            with h5py.File(self.fname, 'r', libver='latest') as f:
+                self.swmr_mode = f.swmr_mode
+                self.frame_names = f.keys()
+
+        elif mode == 'w':
+            self.fname = check_suffix(fname)
+            with h5py.File(self.fname, 'w', libver='latest') as f:
+                f.swmr_mode = swmr_mode
+                self.swmr_mode = swmr_mode
+            self.counter = 0
+        self.mode = mode
+        self.bname = bname
+
+    def dump_descriptor(self,desc,frame_name,f):
 
 
 
