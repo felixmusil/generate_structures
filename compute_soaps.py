@@ -10,10 +10,11 @@ sys.path.insert(0,'/home/musil/git/glosim2/')
 sys.path.insert(0,'/local/git/glosim2/')
 from libmatch.soap import get_Soaps
 
+
 def compute_soap(fn,soap_params,nprocess=1,string_dtype ='S200'):
-    frame_reader = Frame_Dataset_h5(fn,mode='r')
+    frame_reader = Frame_Dataset_h5(fn,mode='r',disable_pbar=True)
     frame_names = frame_reader.names
-    frames = frame_reader.load_frames(frame_names).values()
+    frames = frame_reader.load_frames(frame_names,frame_type='quippy').values()
 
     fings = get_Soaps(frames, nprocess=nprocess, **soap_params)
 
@@ -85,7 +86,7 @@ if __name__ == '__main__':
               'gaussian_width': gaussian_width,'cutoff': cutoff,
               'cutoff_transition_width': cutoff_transition_width,
               'nmax': nmax, 'lmax': lmax, 'is_fast_average':is_fast_average,
-              'chem_channels': False ,'nocenters': nocenters,'dispbar':False,
+              'chem_channels': False ,'nocenters': nocenters,'dispbar':True,
                    }
 
     frame = frame_readers[fns[0]].load_frame('frame_0')
