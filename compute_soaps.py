@@ -11,8 +11,9 @@ sys.path.insert(0,'/local/git/glosim2/')
 from libmatch.soap import get_Soaps
 
 def compute_soap(fn,soap_params,nprocess=1,string_dtype ='S200'):
-    frame_names = frame_readers[fn].names
-    frames = frame_readers[fn].load_frames(frame_names).values()
+    frame_reader = Frame_Dataset_h5(fn,mode='r')
+    frame_names = frame_reader.names
+    frames = frame_reader.load_frames(frame_names).values()
 
     fings = get_Soaps(frames, nprocess=nprocess, **soap_params)
 
