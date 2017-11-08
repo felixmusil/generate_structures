@@ -85,7 +85,7 @@ if __name__ == '__main__':
               'gaussian_width': gaussian_width,'cutoff': cutoff,
               'cutoff_transition_width': cutoff_transition_width,
               'nmax': nmax, 'lmax': lmax, 'is_fast_average':is_fast_average,
-              'chem_channels': False ,'nocenters': nocenters,'dispbar':True,
+              'chem_channels': False ,'nocenters': nocenters,'dispbar':False,
                    }
 
     frame = frame_readers[fns[0]].load_frame('frame_0')
