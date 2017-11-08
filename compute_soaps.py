@@ -5,6 +5,7 @@ from libs.io import Frame_Dataset_h5
 from tqdm import tqdm
 import h5py
 from glob import glob
+from time import ctime
 
 sys.path.insert(0,'/home/musil/git/glosim2/')
 sys.path.insert(0,'/local/git/glosim2/')
@@ -71,6 +72,7 @@ if __name__ == '__main__':
     strides = np.cumsum(sizes)
 
     strides = {fn:(strides[it],strides[it+1]) for it,fn in enumerate(fns)}
+    print strides
 
     centerweight  = 1.
     gaussian_width = 0.5
@@ -102,6 +104,10 @@ if __name__ == '__main__':
         idx2frame = f.create_dataset("idx2frame", (Ntot, 2),
                                      dtype="S{}".format(Nstr), chunks=(chunkSize, 2))
         data = f.create_dataset("data", (Ntot, Nsoap), dtype='f8', chunks=(chunkSize, Nsoap))
+
+        f.attrs['created'] = ctime()
+        for k,v in soap_params.iteritems():
+            f.attrs[k] = v
 
     inputs = [dict(fn=fn,soap_params=soap_params,
                    nprocess=1,string_dtype ="S{}".format(Nstr)) for fn in fns]
