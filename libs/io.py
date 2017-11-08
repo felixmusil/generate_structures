@@ -6,7 +6,11 @@ import itertools
 from quippy import Atoms as qpAtoms
 from ase import Atoms as aseAtoms
 from multiprocessing import Pool
-from tqdm import tqdm_notebook
+from utils import is_notebook
+if is_notebook():
+    from tqdm import tqdm_notebook as tqdm_cs
+else:
+    from tqdm import tqdm as tqdm_cs
 
 class Frame_Dataset_h5(object):
     def __init__(self,fname,mode='a',swmr_mode=True ,bname="frame",debug=False,disable_pbar=False):
@@ -117,7 +121,7 @@ class Frame_Dataset_h5(object):
             names = self.get_names()
         frames = {}
         with h5py.File(self.fname, "r" ,libver='latest', swmr=self.swmr_mode) as f:
-            for name in tqdm_notebook(names,desc='Load frames',disable=self.disable_pbar):
+            for name in tqdm_cs(names,desc='Load frames',disable=self.disable_pbar):
                 frames[name] = self.load_frame(name,frame_type=frame_type,f=f)
 
         return frames
@@ -211,7 +215,7 @@ class DescriptorWriter(object):
         else:
             input_params_ = input_params
         with h5py.File(self.fname,mode=self.mode,libver='latest') as f:
-            for desc,frame_name,input_param in tqdm_notebook(zip(descs,frame_names,input_params_),
+            for desc,frame_name,input_param in tqdm_cs(zip(descs,frame_names,input_params_),
                                                              desc='Dump desc',disable=self.disable_pbar):
                 self.dump(desc,frame_name,input_param,f)
 
@@ -327,7 +331,7 @@ class DescriptorReader(object):
 
         descs = {}
         with h5py.File(self.fname, mode=self.mode, libver='latest',swmr=self.swmr_mode) as f:
-            for frame_name,input_param in tqdm_notebook(zip(frame_names,input_params_),
+            for frame_name,input_param in tqdm_cs(zip(frame_names,input_params_),
                                                              desc='Load desc',disable=self.disable_pbar):
                 descs[frame_name] = self.load(frame_name,input_param,f,get_dataset)
 

@@ -86,6 +86,19 @@ def get_standard_frame(frame,to_primitive=True,symprec=1e-5):
     std_atoms = Atoms(cell=lattice, scaled_positions=positions, numbers=numbers,pbc=pbc)
     return std_atoms
 
+def is_notebook():
+    from IPython import get_ipython
+    try:
+        shell = get_ipython().__class__.__name__
+        if shell == 'ZMQInteractiveShell':
+            return True   # Jupyter notebook or qtconsole
+        elif shell == 'TerminalInteractiveShell':
+            return False  # Terminal running IPython
+        else:
+            return False  # Other type (?)
+    except NameError:
+        return False      # Probably standard Python interpreter
+
 
 @contextlib.contextmanager
 def stdchannel_to_null(disable=False):
