@@ -1,15 +1,8 @@
 from Pool.mpi_pool import MPIPool
 import sys,argparse
-from libs.utils import unskewCell,get_standard_frame,s2hms
-from libs.input_structure import input2crystal
-from libs.LJ_pressure import LJ_vcrelax
-import cPickle as pck
 import numpy as np
 from libs.io import Frame_Dataset_h5
 from tqdm import tqdm
-from time import time,ctime
-from ase.io.trajectory import Trajectory
-import concurrent.futures as cf
 import h5py
 from glob import glob
 
