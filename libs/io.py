@@ -216,7 +216,7 @@ class DescriptorWriter(object):
                 self.dump(desc,frame_name,input_param,f)
 
 class DescriptorReader(object):
-    def __init__(self, fname, bname="soap",debug=False):
+    def __init__(self, fname, bname="soap",debug=False,disable_pbar=False):
         super(self.__class__, self).__init__()
         self.mode = 'r'
         self.fname = fname
@@ -226,6 +226,7 @@ class DescriptorReader(object):
         self.debug = debug
         self.bname = bname
         self.isOpen = False
+        self.disable_pbar = disable_pbar
 
     def open(self,mode='r'):
         self.f = h5py.File(self.fname, mode ,libver='latest')
@@ -238,7 +239,7 @@ class DescriptorReader(object):
             print 'Closing {}'.format(self.fname)
         self.isOpen = False
 
-    def load(self,frame_name,input_param,f=None):
+    def load(self,frame_name,input_param=None,f=None,get_dataset=False,check_param=True,desc_name=None):
         to_close = False
         if f is None and self.isOpen is True:
             f = self.f
@@ -250,33 +251,39 @@ class DescriptorReader(object):
         grp = f[frame_name]
 
         # there are no descriptor of the bname kind in this frame
-        if self.bname not in grp.keys():
+
+        aaa = []
+        for k in grp.keys():
+            aaa.append(self.bname in k)
+        if not np.any(aaa):
             return None
 
-        desc_name = None
-        for name in grp:
-            if self.bname in name:
-                aaa = []
-                for inp_name,val in input_param.iteritems():
-                    if input_param in descriptor_parameters[self.bname]:
-                        try:
-                            if isinstance(val,list) or isinstance(val,np.ndarray):
-                                if np.allclose(val,grp[name].attrs[inp_name]):
-                                    aaa.append(True)
+        if check_param is True:
+            desc_name = None
+            for name in grp:
+                if self.bname in name:
+                    aaa = []
+                    for inp_name,val in input_param.iteritems():
+                        if inp_name in descriptor_parameters[self.bname]:
+                            try:
+                                if isinstance(val,list) or isinstance(val,np.ndarray):
+                                    if np.allclose(val,grp[name].attrs[inp_name]):
+                                        aaa.append(True)
+                                    else:
+                                        aaa.append(False)
+                                elif isinstance(val,int) or isinstance(val,float) or isinstance(val,str):
+                                    if val == grp[name].attrs[inp_name]:
+                                        aaa.append(True)
+                                    else:
+                                        aaa.append(False)
                                 else:
-                                    aaa.append(False)
-                            elif isinstance(val,int) or isinstance(val,float) or isinstance(val,str):
-                                if val == grp[name].attrs[inp_name]:
-                                    aaa.append(True)
-                                else:
-                                    aaa.append(False)
-                            else:
-                                raise ValueError(''.format(val))
-                        except KeyError:
-                            pass
-                if np.all(aaa):
-                    desc_name = name
-                    break
+                                    raise ValueError(''.format(val))
+                            except KeyError:
+                                pass
+
+                    if np.all(aaa):
+                        desc_name = name
+                        break
 
         try:
             desc_h5 = grp[desc_name]
@@ -288,12 +295,18 @@ class DescriptorReader(object):
         if self.bname == 'soap':
             if input_param['chem_channels'] is False:
                 for name,p in desc_h5.iteritems():
-                    desc[name] = p.value
+                    if not get_dataset:
+                        desc[name] = p.value
+                    else:
+                        desc[name] = p
             elif input_param['chem_channels'] is True:
                 for name,center in desc_h5.iteritems():
                     desc[name] = {}
                     for ab,pA in center.iteritems():
-                        desc[name][ab] = pA.value
+                        if not get_dataset:
+                            desc[name][ab] = pA.value
+                        else:
+                            desc[name][ab] = pA
         else:
             raise NotImplementedError('Descriptor {} is not implemented'.format(self.bname))
 
@@ -302,15 +315,23 @@ class DescriptorReader(object):
 
         return desc
 
-    def loads(self, frame_names, input_params):
+    def loads(self, input_params,frame_names=None,get_dataset=False):
+        if frame_names is None:
+            frame_names = self.frame_names
         if isinstance(input_params,dict):
             input_params_ = [input_params for it in range(len(frame_names))]
         else:
             input_params_ = input_params
+
+
+
         descs = {}
         with h5py.File(self.fname, mode=self.mode, libver='latest',swmr=self.swmr_mode) as f:
-            for frame_name,input_param in zip(frame_names,input_params_):
-                descs[frame_name] = self.load(frame_name,input_param,f)
+            for frame_name,input_param in tqdm_notebook(zip(frame_names,input_params_),
+                                                             desc='Load desc',disable=self.disable_pbar):
+                descs[frame_name] = self.load(frame_name,input_param,f,get_dataset)
+
+
         return descs
 
 def check_suffix(fileName):
