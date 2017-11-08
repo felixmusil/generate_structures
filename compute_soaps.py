@@ -24,7 +24,9 @@ def compute_soap(fn,soap_params,nprocess=1,string_dtype ='S200'):
     idx2frame = []
 
     for fing, frame_name in zip(fings, frame_names):
-        soaps.append(fing['AVG'])
+        sss = fing['AVG']
+        nrm = np.linalg.norm(sss)
+        soaps.append(sss/nrm)
         idx2frame.append(np.array([fn, frame_name], dtype=string_dtype))
 
     soaps = np.asarray(soaps,dtype='f8')
