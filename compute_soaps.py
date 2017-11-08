@@ -15,7 +15,8 @@ from libmatch.soap import get_Soaps
 def compute_soap(fn,soap_params,nprocess=1,string_dtype ='S200'):
     frame_reader = Frame_Dataset_h5(fn,mode='r',disable_pbar=True)
     frame_names = frame_reader.names
-    frames = frame_reader.load_frames(frame_names,frame_type='quippy').values()
+    ffs = frame_reader.load_frames(frame_names,frame_type='quippy')
+    frames = [ffs[frame_name] for frame_name in frame_names]
 
     fings = get_Soaps(frames, nprocess=nprocess, **soap_params)
 
@@ -54,7 +55,21 @@ if __name__ == '__main__':
     dataPath = '/home/musil/workspace/qmat/structures/'
 
     fns = glob(dataPath + 'relaxed_structures_step1_*.h5')
-    len(fns)
+
+    chunkSize = 50
+    fout = dataPath + 'descriptor-chunk{}.h5'.format(chunkSize)
+
+    centerweight = 1.
+    gaussian_width = 0.5
+    cutoff = 3.5
+    cutoff_transition_width = 0.5
+    nmax = 10
+    lmax = 15
+    nocenters = []
+    is_fast_average = True
+
+
+    print len(fns)
 
     Ntot = 0
     frame_readers = {}
@@ -74,15 +89,6 @@ if __name__ == '__main__':
     strides = {fn:(strides[it],strides[it+1]) for it,fn in enumerate(fns)}
     print strides
 
-    centerweight  = 1.
-    gaussian_width = 0.5
-    cutoff = 3.5
-    cutoff_transition_width = 0.5
-    nmax = 10
-    lmax = 15
-    nocenters = []
-    is_fast_average = True
-
     soap_params = {
               'centerweight': centerweight,
               'gaussian_width': gaussian_width,'cutoff': cutoff,
@@ -97,8 +103,8 @@ if __name__ == '__main__':
     Nsoap = fings.shape[0]
     print Nsoap
 
-    chunkSize = 50
-    fout = dataPath + 'descriptor-chunk{}.h5'.format(chunkSize)
+
+
     # fout = dataPath + 'descriptor_test-chunk{}.h5'.format(chunkSize)
     with h5py.File(fout, mode='w', libver='latest') as f:
         idx2frame = f.create_dataset("idx2frame", (Ntot, 2),
