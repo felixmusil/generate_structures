@@ -86,12 +86,11 @@ if __name__ == '__main__':
         frame_names[fn] = []
         Nstr.append(len(fn))
         rr = Frame_Dataset_h5(fn, mode='r')
-        ffs = rr.load_frames( frame_type='quippy')
-        for frame_name,ff in ffs.iteritems():
-            sym_data = spg.get_symmetry_dataset(ff, symprec=1e-5)
-            if len(np.unique(sym_data['equivalent_atoms'])) == 1:
-                frame_names[fn].append(frame_name)
-
+        ffs = rr.names
+        with h5py.File(fn,'r') as f:
+            for frame_name in ffs:
+                if f[frame_name].attrs['Nequivalent_site'] == 1:
+                    frame_names[fn].append(frame_name)
 
         sizes.append(len(frame_names[fn]))
         Ntot += len(frame_names[fn])

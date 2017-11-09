@@ -13,10 +13,10 @@ import concurrent.futures as cf
 import spglib as spg
 
 
-def generate_crystal_step_1(sites_z, seed, vdw_ratio, isotropic_external_pressure=1e-2, symprec=1e-5):
+def generate_crystal_step_1(sites_z, seed, vdw_ratio, isotropic_external_pressure=1e-2, symprec=1e-5,sg=None):
     Nsite = len(sites_z)
 
-    crystal, sg, wki = input2crystal(sites_z, seed, vdw_ratio)
+    crystal, sg, wki = input2crystal(sites_z, seed, vdw_ratio,sg=sg)
 
     crystal = unskewCell(crystal)
 
