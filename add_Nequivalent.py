@@ -1,0 +1,52 @@
+from Pool.mpi_pool import MPIPool
+import sys,argparse
+import numpy as np
+from libs.io import Frame_Dataset_h5
+from tqdm import tqdm
+import h5py
+from glob import glob
+from time import ctime
+import spglib as spg
+
+sys.path.insert(0,'/home/musil/git/glosim2/')
+sys.path.insert(0,'/local/git/glosim2/')
+from libmatch.soap import get_Soaps
+
+
+def add_Nequivalent(fn):
+    frame_reader = Frame_Dataset_h5(fn,mode='r+',disable_pbar=True)
+
+
+    frame_names = frame_reader.names
+
+    frame_reader.open(mode='r+')
+
+    for frame_name in frame_names:
+        ff = frame_reader.load_frame(frame_name)
+        sym_data = spg.get_symmetry_dataset(ff, symprec=1e-5)
+        Nequivalent_site = len(np.unique(sym_data['equivalent_atoms']))
+        frame_reader.f.attrs['Nequivalent_site'] = Nequivalent_site
+
+    frame_reader.close()
+
+
+
+if __name__ == '__main__':
+    pool = MPIPool()
+
+    if not pool.is_master():
+
+        pool.wait()
+        # pool.wait(callbacks=[fout.close,executor.shutdown])
+        sys.exit(0)
+
+
+    dataPath = '/home/musil/workspace/qmat/structures/'
+
+    fns = glob(dataPath + 'relaxed_structures_step1_*.h5')
+
+    inputs = [fn for fn in fns]
+
+    pool.map(add_Nequivalent,inputs)
+
+    pool.close()
