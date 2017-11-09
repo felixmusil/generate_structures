@@ -14,7 +14,7 @@ from libmatch.soap import get_Soaps
 
 
 def add_Nequivalent(fn):
-    frame_reader = Frame_Dataset_h5(fn,mode='r+',disable_pbar=True)
+    frame_reader = Frame_Dataset_h5(fn,mode='r',disable_pbar=True)
 
     frame_names = frame_reader.names
 
