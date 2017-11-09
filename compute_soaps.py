@@ -70,7 +70,7 @@ if __name__ == '__main__':
     fns = glob(dataPath + 'relaxed_structures_step1_*.h5')
 
     chunkSize = 50
-    fout = dataPath + 'descriptor-chunk{}.h5'.format(chunkSize)
+    fout = dataPath + 'descriptor-chunk{}_new.h5'.format(chunkSize)
 
     centerweight = 1.
     gaussian_width = 0.5
