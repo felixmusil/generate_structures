@@ -18,16 +18,16 @@ def add_Nequivalent(fn):
 
     frame_names = frame_reader.names
 
-    frame_reader.open(mode='r+')
+    # frame_reader.open(mode='r+')
     lll = 0
     for frame_name in frame_names:
         ff = frame_reader.load_frame(frame_name)
         sym_data = spg.get_symmetry_dataset(ff, symprec=1e-5)
         Nequivalent_site = len(np.unique(sym_data['equivalent_atoms']))
-        frame_reader.f[frame_name].attrs['Nequivalent_site'] = Nequivalent_site
+        # frame_reader.f[frame_name].attrs['Nequivalent_site'] = Nequivalent_site
         if Nequivalent_site == 1:
             lll += 1
-    frame_reader.close()
+    # frame_reader.close()
 
     return lll,fn
 
