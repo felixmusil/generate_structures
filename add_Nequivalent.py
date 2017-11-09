@@ -32,24 +32,24 @@ def add_Nequivalent(fn):
     return lll,fn
 
 if __name__ == '__main__':
-    pool = MPIPool()
-
-    if not pool.is_master():
-
-        pool.wait()
-        # pool.wait(callbacks=[fout.close,executor.shutdown])
-        sys.exit(0)
+    # pool = MPIPool()
+    #
+    # if not pool.is_master():
+    #
+    #     pool.wait()
+    #     # pool.wait(callbacks=[fout.close,executor.shutdown])
+    #     sys.exit(0)
 
 
     dataPath = '/home/musil/workspace/qmat/structures/'
 
     fns = glob(dataPath + 'relaxed_structures_step1_*.h5')
-
+    print len(fns)
     inputs = [fn for fn in fns]
-    # Ns = map(add_Nequivalent,inputs)
-    Ns = pool.map(add_Nequivalent,inputs)
+    Ns = map(add_Nequivalent,inputs)
+    # Ns = pool.map(add_Nequivalent,inputs)
 
     for N in Ns:
         print N
 
-    pool.close()
+    # pool.close()
