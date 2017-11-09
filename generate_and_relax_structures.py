@@ -10,20 +10,25 @@ from tqdm import tqdm
 from time import time,ctime
 from ase.io.trajectory import Trajectory
 import concurrent.futures as cf
-
+import spglib as spg
 
 
 def generate_crystal_step_1(sites_z, seed, vdw_ratio, isotropic_external_pressure=1e-2, symprec=1e-5):
+    Nsite = len(sites_z)
+
     crystal, sg, wki = input2crystal(sites_z, seed, vdw_ratio)
 
     crystal = unskewCell(crystal)
 
     crystal = LJ_vcrelax(crystal,isotropic_external_pressure,debug=False)
 
-
     try:
-        crystal = get_standard_frame(crystal, to_primitive=False, symprec=symprec)
-        return crystal
+        sym_data = spg.get_symmetry_dataset(crystal, symprec=symprec)
+        if not len(np.unique(sym_data['equivalent_atoms'])) == Nsite:
+            return None
+        else:
+            crystal = get_standard_frame(crystal, to_primitive=False, symprec=symprec)
+            return crystal
     except:
         return  None
 

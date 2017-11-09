@@ -6,6 +6,7 @@ from tqdm import tqdm
 import h5py
 from glob import glob
 from time import ctime
+import spglib as spg
 
 sys.path.insert(0,'/home/musil/git/glosim2/')
 sys.path.insert(0,'/local/git/glosim2/')
@@ -16,7 +17,17 @@ def compute_soap(fn,soap_params,nprocess=1,string_dtype ='S200'):
     frame_reader = Frame_Dataset_h5(fn,mode='r',disable_pbar=True)
     frame_names = frame_reader.names
     ffs = frame_reader.load_frames(frame_names,frame_type='quippy')
-    frames = [ffs[frame_name] for frame_name in frame_names]
+    # frames = [ffs[frame_name] for frame_name in frame_names]
+    frames = []
+    frame_names_sel = []
+    for frame_name in frame_names:
+        ff = ffs[frame_name]
+        sym_data = spg.get_symmetry_dataset(ff, symprec=1e-5)
+        if len(np.unique(sym_data['equivalent_atoms'])) == 1:
+            frames.append(ff)
+            frame_names_sel.append(ff)
+
+    frame_names = frame_names_sel
 
     fings = get_Soaps(frames, nprocess=nprocess, **soap_params)
 

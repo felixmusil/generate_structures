@@ -5,7 +5,7 @@ from processify import processify
 from raw_data import z2Covalentradius
 from utils import stdchannel_to_null
 
-timeout = 3
+timeout = 4
 
 def LJ_vcrelax(crystal,isotropic_external_pressure=1e-2,debug=False):
     from quippy.potential import Potential
