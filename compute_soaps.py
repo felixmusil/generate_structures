@@ -13,21 +13,14 @@ sys.path.insert(0,'/local/git/glosim2/')
 from libmatch.soap import get_Soaps
 
 
-def compute_soap(fn,soap_params,nprocess=1,string_dtype ='S200'):
+def compute_soap(fn,soap_params,frame_names=None,nprocess=1,string_dtype ='S200'):
     frame_reader = Frame_Dataset_h5(fn,mode='r',disable_pbar=True)
-    frame_names = frame_reader.names
-    ffs = frame_reader.load_frames(frame_names,frame_type='quippy')
-    # frames = [ffs[frame_name] for frame_name in frame_names]
-    frames = []
-    frame_names_sel = []
-    for frame_name in frame_names:
-        ff = ffs[frame_name]
-        sym_data = spg.get_symmetry_dataset(ff, symprec=1e-5)
-        if len(np.unique(sym_data['equivalent_atoms'])) == 1:
-            frames.append(ff)
-            frame_names_sel.append(ff)
 
-    frame_names = frame_names_sel
+    if frame_names is None:
+        frame_names = frame_reader.names
+
+    ffs = frame_reader.load_frames(frame_names,frame_type='quippy')
+    frames = [ffs[frame_name] for frame_name in frame_names]
 
     fings = get_Soaps(frames, nprocess=nprocess, **soap_params)
 
@@ -88,11 +81,20 @@ if __name__ == '__main__':
     frame_readers = {}
     sizes = [0]
     Nstr = []
-    for fn in fns:
+    frame_names = {}
+    for fn in tqdm(fns,desc='Frame count'):
+        frame_names[fn] = []
         Nstr.append(len(fn))
         rr = Frame_Dataset_h5(fn, mode='r')
-        sizes.append(len(rr.names))
-        Ntot += len(rr.names)
+        ffs = rr.load_frames( frame_type='quippy')
+        for frame_name,ff in ffs.iteritems():
+            sym_data = spg.get_symmetry_dataset(ff, symprec=1e-5)
+            if len(np.unique(sym_data['equivalent_atoms'])) == 1:
+                frame_names[fn].append(frame_name)
+
+
+        sizes.append(len(frame_names[fn]))
+        Ntot += len(frame_names[fn])
         frame_readers[fn] = rr
     print Ntot
     Nstr = np.max(Nstr) + 1
@@ -128,7 +130,7 @@ if __name__ == '__main__':
         for k,v in soap_params.iteritems():
             f.attrs[k] = v
 
-    inputs = [dict(fn=fn,soap_params=soap_params,
+    inputs = [dict(fn=fn,frame_names=frame_names[fn],soap_params=soap_params,
                    nprocess=1,string_dtype ="S{}".format(Nstr)) for fn in fns]
 
 
