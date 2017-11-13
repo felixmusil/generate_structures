@@ -137,6 +137,16 @@ SG2BravaisLattice = \
      223: 'cubic P', 224: 'cubic P', 225: 'cubic F', 226: 'cubic F', 227: 'cubic F',
      228: 'cubic F', 229: 'cubic I', 230: 'cubic I'}
 
+bravaisLattice2num = {
+    'cubic P':1,'cubic F':2,'cubic I':3,'hexagonal P':4,'trigonal P':4,
+    'trigonal R':5,'tetragonal P':6,'tetragonal I':7,
+    'orthorhombic P':8,'orthorhombic A':9,'orthorhombic B':9,
+    'orthorhombic C':9,'orthorhombic F':10,'orthorhombic I':11,
+    'monoclinic P':12,'monoclinic A':13,'monoclinic B':13,
+    'monoclinic C':13, 'triclinic P':14
+}
+
+
 # Informations about wyckoff positions from http://it.iucr.org/Ac/ doi: 10.1107/97809553602060000114 International tables of crystalography
 # dict (sg,['Site symmetry', 'Multiplicity', 'Site generator', 'Wyckoff letter'])
 WyckTable = {
