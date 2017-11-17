@@ -73,6 +73,6 @@ if __name__ == '__main__':
 
     df = pd.DataFrame.from_dict(data_inits)
 
-    df.to_pickle('/home/musil/workspace/qmat/sg_wyck_tag_step0.pck')
+    df.to_pickle('/home/musil/workspace/qmat/sg_wyck_tag_step0_spg.pck')
 
     pool.close()
