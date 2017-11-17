@@ -44,6 +44,33 @@ def get_initial_sg_wyck(fn):
 
     return data_init
 
+def get_initial_sg_wyck_generation(fn):
+    frame_reader = Frame_Dataset_h5(fn,mode='r',swmr_mode=False,disable_pbar=True)
+
+    frame_names = frame_reader.names
+
+    frame_reader.open(mode='r')
+    data_init = {'Space Group': [], 'Wyckoff Position': [], 'tag': [], 'fn': [], 'frame_name': []}
+
+    for frame_name in frame_names:
+        inp = {}
+        for k, v in frame_reader.f[frame_name]['inputs'].iteritems():
+            inp[k] = v.value
+        inp.pop('symprec')
+        inp.pop('isotropic_external_pressure')
+        cc, sg, wyck = input2crystal(**inp)
+
+        tag = '{}:{}'.format(sg, wyck)
+        data_init['fn'].append(fn)
+        data_init['frame_name'].append(frame_name)
+        data_init['tag'].append(tag)
+        data_init['Space Group'].append(sg)
+        data_init['Wyckoff Position'].append(wyck)
+    frame_reader.close()
+
+    return data_init
+
+
 if __name__ == '__main__':
     pool = MPIPool()
 
@@ -60,7 +87,11 @@ if __name__ == '__main__':
     print len(fns)
     inputs = [fn for fn in fns]
     # Ns = map(add_Nequivalent,inputs)
-    res = pool.map(get_initial_sg_wyck,inputs)
+    # res = pool.map(get_initial_sg_wyck,inputs)
+    # fout = '/home/musil/workspace/qmat/sg_wyck_tag_step0_spg.pck'
+
+    res = pool.map(get_initial_sg_wyck_generation, inputs)
+    fout = '/home/musil/workspace/qmat/sg_wyck_tag_step0_sel.pck'
 
     data_inits = {'Space Group': [], 'Wyckoff Position': [], 'tag': [], 'fn': [], 'frame_name': []}
 
@@ -73,6 +104,6 @@ if __name__ == '__main__':
 
     df = pd.DataFrame.from_dict(data_inits)
 
-    df.to_pickle('/home/musil/workspace/qmat/sg_wyck_tag_step0_spg.pck')
+    df.to_pickle(fout)
 
     pool.close()
