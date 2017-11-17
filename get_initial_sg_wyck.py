@@ -59,6 +59,7 @@ def get_initial_sg_wyck_generation(fn):
         inp.pop('symprec')
         inp.pop('isotropic_external_pressure')
         cc, sg, wyck = input2crystal(**inp)
+        wyck = wyck[0]
 
         tag = '{}:{}'.format(sg, wyck)
         data_init['fn'].append(fn)
