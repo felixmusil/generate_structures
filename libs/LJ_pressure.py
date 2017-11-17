@@ -39,8 +39,7 @@ def LJ_vcrelax(crystal,isotropic_external_pressure=1e-2,debug=False):
         ## 2nd round of relaxation without external pressure
         cc.set_calculator(pot)
         cc.set_cutoff(max_cutoff, 0.5)
-        cc = vc_relax_qp(cc,fmax=7e-5, steps=1e5,
-                         isotropic_external_pressure=1e-5)
+        cc = vc_relax_qp(cc,fmax=7e-5, steps=1e5)
 
         if cc is None:
             crystal = vc_relax_ase(crystal, fmax=7e-5, steps=1e5)

@@ -1,8 +1,9 @@
 from Pool.mpi_pool import MPIPool
 import sys,argparse
-from libs.utils import unskewCell,get_standard_frame,s2hms
+from libs.utils import unskewCell,get_standard_frame,s2hms,isLayered,isTooClose
 from libs.input_structure import input2crystal
 from libs.LJ_pressure import LJ_vcrelax
+from libs.raw_data import z2Covalentradius
 import cPickle as pck
 import numpy as np
 from libs.io import Frame_Dataset_h5
@@ -11,7 +12,6 @@ from time import time,ctime
 from ase.io.trajectory import Trajectory
 import concurrent.futures as cf
 import spglib as spg
-
 
 def generate_crystal_step_1(sites_z, seed, vdw_ratio, isotropic_external_pressure=1e-2, symprec=1e-5,sg=None):
     Nsite = len(sites_z)
@@ -23,21 +23,38 @@ def generate_crystal_step_1(sites_z, seed, vdw_ratio, isotropic_external_pressur
     crystal = LJ_vcrelax(crystal,isotropic_external_pressure,debug=False)
 
     try:
-        sym_data = spg.get_symmetry_dataset(crystal, symprec=symprec)
-        if not len(np.unique(sym_data['equivalent_atoms'])) == Nsite:
-            return None
-        else:
-            crystal = get_standard_frame(crystal, to_primitive=False, symprec=symprec)
-            return crystal
+        thr = np.min([z2Covalentradius[z] for z in sites_z])
+
+        if isTooClose(crystal,threshold=thr*1.7):
+            crystal = LJ_vcrelax(crystal, isotropic_external_pressure, debug=False)
+        elif isLayered(crystal,cutoff=thr*1.5, aspect_ratio=0.75):
+            crystal = LJ_vcrelax(crystal, isotropic_external_pressure, debug=False)
+
     except:
-        return  None
+        return None,None
+
+    try:
+        sym_data = spg.get_symmetry_dataset(crystal, symprec=symprec)
+        Nequ = len(np.unique(sym_data['equivalent_atoms']))
+        sg = sym_data['number']
+        wyck = np.unique(sym_data['wyckoffs'])[0]
+        info = {'Nequivalent_site':Nequ,'space group':sg,
+                'wyckoff site':wyck,'sym tag':'{}:{}'.format(sg,wyck)}
+        if  Nequ == Nsite:
+            crystal = get_standard_frame(crystal, to_primitive=False, symprec=symprec)
+            return crystal, info
+        else:
+            return None,None
+    except:
+        return  None,None
 
 def generate_crystal_step_1_wrapper(kwargs):
-    crystal = generate_crystal_step_1(**kwargs)
+    crystal,info = generate_crystal_step_1(**kwargs)
 
     if crystal is None:
         return kwargs
     else:
+        kwargs.update(info)
         fout.dump_frame(crystal, inp_dict=kwargs)
         # fout.write(crystal)
         # executor.submit(fout.write, crystal)

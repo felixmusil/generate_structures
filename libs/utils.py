@@ -1,5 +1,6 @@
 import contextlib
 import os
+from ase.neighborlist import NeighborList
 
 import numpy as np
 import spglib as spg
@@ -122,3 +123,51 @@ def stdchannel_to_null(disable=False):
         os.close(null_fds[1])
         os.close(save[0])
         os.close(save[1])
+
+def isTooClose(frame,threshold=2.):
+    crystal = ase2qp(frame)
+    if len(crystal) > 1:
+        dd = crystal.get_all_distances()
+        dd = dd + 2.5*threshold*np.eye(dd.shape[0])
+    else:
+        dd = 3.*threshold*np.ones((2,2))
+    return dd[dd<threshold].size > 0
+
+def isLayered(frame, cutoff=1.5, aspect_ratio=0.5, debug=False):
+
+    crystal = qp2ase(frame)
+    length = crystal.get_cell_lengths_and_angles()[:3]
+
+    rr = np.ones(3, int)
+
+    for it in range(3):
+        mask = length / length[it] < aspect_ratio
+        if np.any(mask):
+            rr[it] = 2
+
+    crystal = crystal.repeat(list(rr))
+    if debug:
+        print rr
+    Nat = len(crystal)
+    nl = NeighborList([cutoff, ] * Nat, skin=0.0, sorted=False, self_interaction=False, bothways=True)
+    nl.build(crystal)
+    indices, _ = nl.get_neighbors(0)
+
+    to_visit = list(indices)
+
+    visited = [0]
+    while len(to_visit) > 0:
+        center_id = to_visit.pop(0)
+        if debug:
+            print to_visit
+        indices, _ = nl.get_neighbors(center_id)
+        visited.append(center_id)
+        ll = list(np.setdiff1d(indices, visited))
+        to_visit.extend(ll)
+        to_visit = list(np.unique(to_visit))
+
+    not_visited = np.setdiff1d(np.arange(Nat), visited)
+    if debug:
+        print not_visited
+
+    return len(not_visited) > 0

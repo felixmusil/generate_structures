@@ -46,9 +46,6 @@ if __name__ == '__main__':
     print len(fns)
     inputs = [fn for fn in fns]
     # Ns = map(add_Nequivalent,inputs)
-    Ns = pool.map(add_sg_w,inputs)
-
-    for N in Ns:
-        print N
+    pool.map(add_sg_w,inputs)
 
     pool.close()
