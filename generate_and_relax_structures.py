@@ -81,8 +81,6 @@ if __name__ == '__main__':
     except:
         raise ValueError('seedlim and sites_z must be coma separated int or float respectively')
 
-
-
     vdw_ratio = args.vdw_ratio
 
     pool = MPIPool()

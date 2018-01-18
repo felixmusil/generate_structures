@@ -72,7 +72,8 @@ def input2crystal(sites_z ,seed ,vdw_ratio, sg=None):
         cellparam_guess = a, b, c, alpha, beta, gamma
         cellparam = getCellParam(cellparam_guess, vdw_ratio, VdW_radii, Natoms, bravaisLattice)
 
-    cc = crystal(symbols=symbols, basis=asym_positions, spacegroup=sg, cellpar=cellparam, symprec=1e-7, pbc=True)
+    cc = crystal(symbols=symbols, basis=asym_positions, spacegroup=sg,
+                 cellpar=cellparam, symprec=1e-7, pbc=True,primitive_cell=False)
 
     return cc, sg, wyckoff_letters
 
