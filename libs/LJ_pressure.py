@@ -55,8 +55,6 @@ def LJ_vcrelax(crystal,isotropic_external_pressure=1e-2,debug=False):
 def LJ_vcrelax_alternative(crystal,isotropic_external_pressure=1e-2,debug=False):
     from quippy.potential import Potential
 
-    # sep = AtomSeparator(crystal)
-    # sep.run()
 
     # do a copy and change the object type
     dd = ase2qp(crystal)
@@ -67,20 +65,32 @@ def LJ_vcrelax_alternative(crystal,isotropic_external_pressure=1e-2,debug=False)
     param_str = make_LJ_input(dd, LJ_parameters)
 
     pot = Potential('IP LJ', param_str=param_str)
+
     # supress output from quippy minimisation routine
     with stdchannel_to_null(disable=debug):
         dd.set_calculator(pot)
         dd.set_cutoff(max_cutoff, 0.5)
 
-        ## 1st round of vc relax with external isotropic pressure
-        # if isLayered(dd):
-        vc_relax_qp(dd,fmax=5e-2, steps=1e5,relax_positions=True,
-                     isotropic_external_pressure=isotropic_external_pressure)
+        sep = AtomSeparator(dd)
+        sep.run(Nmax=20)
+
+        #dd = vc_relax_ase(dd, fmax=1e1, steps=1e5)
+        vc_relax_ase(dd, isotropic_external_pressure=isotropic_external_pressure,
+                     fmax=5e-2, steps=1e4)
+
+
+
+        vc_relax_ase(dd, fmax=5e-3, steps=1e4)
+        # dd = vc_relax_ase(dd, fmax=1e1, steps=1e5)
+        # ## 1st round of vc relax with external isotropic pressure
+        # # if isLayered(dd):
+        # vc_relax_qp(dd,fmax=5e-2, steps=1e5,relax_positions=True,
+        #              isotropic_external_pressure=isotropic_external_pressure)
         # dd.set_calculator(pot)
         # dd.set_cutoff(max_cutoff, 0.5)
         ## 2nd round of relaxation without external pressure
         # crystal = vc_relax_qp(dd,fmax=7e-5, steps=1e5)
-        vc_relax_qp(dd, fmax=1e-2, steps=1e5)
+        # vc_relax_qp(dd, fmax=5e-3, steps=1e5)
 
     return qp2ase(dd)
 
@@ -99,10 +109,12 @@ def vc_relax_qp( crystal, relax_positions=True,isotropic_external_pressure=None,
                       external_pressure=pressure_tensor, eps_guess=0.2, fire_dt0=0.1, fire_dt_max=1.0, use_precond=None)
 
     minimiser.run(fmax=fmax, steps=steps)
-    print minimiser.nsteps
+    #print minimiser.nsteps
     crystal.wrap()
 
     return crystal
+
+
 
 def vc_relax_ase( crystal,relax_positions=True, isotropic_external_pressure=None,fmax=5e-3, steps=5e4):
     from libs.custom_unitcellfilter import UnitCellFilter
@@ -124,6 +136,7 @@ def vc_relax_ase( crystal,relax_positions=True, isotropic_external_pressure=None
     dyn = FIRE(ucf, logfile=None)
 
     dyn.run(fmax=fmax, steps=steps)
+
 
     crystal.wrap()
 
@@ -184,6 +197,10 @@ class AtomSeparator(object):
         fff = True
         while fff:
             fff = self.step()
+            atoms = self.atoms
+
+            self.atoms = vc_relax_ase(atoms, relax_positions=False,
+                                      fmax=5e-2, steps=2)
             ii += 1
             if ii >= Nmax:
                 fff = False

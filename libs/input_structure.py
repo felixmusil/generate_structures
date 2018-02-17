@@ -4,7 +4,7 @@ from raw_data import SG2BravaisLattice,z2symb,z2VdWradius,WyckTable
 
 
 
-def input2crystal(sites_z ,seed ,vdw_ratio, sg=None):
+def input2crystal(sites_z ,vdw_ratio=None, sg=None,wycks=None):
     '''
     Generate a random atomic structure through space group and wyckoff sites
     :param sites_z: list of atomic numbers (corresponds to the number of asymmetric sites)
@@ -15,11 +15,21 @@ def input2crystal(sites_z ,seed ,vdw_ratio, sg=None):
     '''
     from ase.spacegroup import crystal
 
-    npr.seed(seed)
-
+    if vdw_ratio is None:
+        vdw_ratio = np.around(npr.random((1,) ) *(1.5 - 0.7) + 0.5, decimals=1)[0]
     # Return random integers from `low` (inclusive) to `high` (exclusive).
     if sg is None:
         sg = npr.randint(1 ,high= 230 +1)
+
+    if wycks is None:
+        # get a site generator at random (random wyckoff site)
+        wyckoff_site_ids = []
+        for site_z in sites_z:
+            st, nd = 0, len(WyckTable[sg]['Wyckoff letter'].keys())
+            wyckoff_site_idx = npr.randint(st, high=nd)
+            wyckoff_site_ids.append(wyckoff_site_idx)
+    else:
+        wyckoff_site_ids = wycks
 
     bravaisLattice = SG2BravaisLattice[sg]
 
@@ -28,21 +38,18 @@ def input2crystal(sites_z ,seed ,vdw_ratio, sg=None):
     VdW_radii = []
     symbols = []
     wyckoff_letters = []
-    for site_z in sites_z:
+    for site_z,wyckoff_site_idx in zip(sites_z,wyckoff_site_ids):
 
         symbols.append(z2symb[site_z])
 
-        # get a site generator at random (random wyckoff site)
-        st ,nd = 0 ,len(WyckTable[sg]['Wyckoff letter'].keys())
-        wyckoff_site_idx = npr.randint(st ,high=nd)
         wyckoff_letters.append(WyckTable[sg]['Wyckoff letter'][wyckoff_site_idx])
         site_generator = WyckTable[sg]['Site generator'][wyckoff_site_idx]
 
-        cc = crystal(symbols=['Si'], basis=[0 ,0.4 ,0.6], spacegroup=sg, cellpar=[1 ,1 ,1 ,90 ,90 ,90] ,symprec=1e-5, pbc=True)
-        Natoms.append(cc.get_number_of_atoms())
+        # Natoms.append(WyckTable[sg]['Multiplicity'][wyckoff_site_idx])
         VdW_radii.append(z2VdWradius[site_z])
         # get rand xyz position from 0.1 to 0.9 with rounded at 3 decimals
         x ,y ,z = np.around(npr.random((3,) ) *(0.9 - 0.1) + 0.1, decimals=3)
+
 
         asym_position = []
         for gen in site_generator:
@@ -51,6 +58,10 @@ def input2crystal(sites_z ,seed ,vdw_ratio, sg=None):
             else:
                 asym_position.append(eval(gen))
         asym_positions.append(asym_position)
+
+        cc = crystal(symbols=['Si'], basis=asym_position, spacegroup=sg, cellpar=[5, 5, 5, 90, 90, 90], symprec=1e-5,
+                     pbc=True)
+        Natoms.append(cc.get_number_of_atoms())
 
 
 
