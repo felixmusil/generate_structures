@@ -80,7 +80,7 @@ def LJ_vcrelax_alternative(crystal, isotropic_external_pressure=20, debug=False)
         sep.run(Nmax=20)
 
         # dd = vc_relax_ase(dd, fmax=1e1, steps=1e5)
-        for iii in range(100):
+        for iii in range(500):
             if isLayered(dd, cutoff=thr * 1.5, aspect_ratio=0.75):
                 vc_relax_ase(dd, fmax=5e-1, steps=1e4)
 

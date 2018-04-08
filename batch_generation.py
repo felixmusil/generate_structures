@@ -230,16 +230,21 @@ def fpsSelection_with_restart(data=None, distance_func=None, restart_ref=None, d
 def generate_crystal(sites_z):
     crystal, sg, wyckoff_letters = input2crystal(sites_z)
 
+    initial_crystal = qp2ase(crystal)
+
     crystal = unskewCell(crystal)
 
     crystal = LJ_vcrelax_alternative(crystal, isotropic_external_pressure=20, debug=True)
 
-    #     thr = np.min([z2Covalentradius[z] for z in sites_z])
+    crystal = unskewCell(crystal)
 
-    #     if isLayered(crystal,cutoff=thr*1.5, aspect_ratio=0.75):
-    #         crystal = LJ_vcrelax_alternative(crystal, isotropic_external_pressure=2, debug=True)
+    thr = np.min([z2Covalentradius[z] for z in sites_z])
 
-    return crystal
+    if isLayered(crystal,cutoff=thr*1.5, aspect_ratio=0.75):
+        crystal = LJ_vcrelax_alternative(crystal, isotropic_external_pressure=200, debug=True)
+        crystal = unskewCell(crystal)
+
+    return crystal,initial_crystal,sg, wyckoff_letters
 
 
 from Pool.mpi_pool import MPIPool
