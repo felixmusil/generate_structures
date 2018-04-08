@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as np
 from utils import ase2qp,qp2ase,isLayered
 from processify import processify
-from raw_data import z2Covalentradius,separationData
+from raw_data import z2Covalentradius,separationData,z2epsilon,GPa2eV_per_A3
 from utils import stdchannel_to_null
 from scipy.spatial.distance import pdist,cdist,squareform
 from ase.neighborlist import NeighborList
@@ -10,6 +10,7 @@ from ase.neighborlist import NeighborList
 timeout = 10
 
 def LJ_vcrelax(crystal,isotropic_external_pressure=1e-2,debug=False):
+    ''' isotropic_external_pressure is in GPa'''
     from quippy.potential import Potential
 
     # do a copy and change the object type
@@ -53,6 +54,7 @@ def LJ_vcrelax(crystal,isotropic_external_pressure=1e-2,debug=False):
     return crystal
 
 def LJ_vcrelax_alternative(crystal,isotropic_external_pressure=1e-2,debug=False):
+    ''' isotropic_external_pressure is in GPa'''
     from quippy.potential import Potential
 
 
@@ -97,13 +99,14 @@ def LJ_vcrelax_alternative(crystal,isotropic_external_pressure=1e-2,debug=False)
 
 # @processify(timeout=timeout)
 def vc_relax_qp( crystal, relax_positions=True,isotropic_external_pressure=None,fmax=5e-3, steps=5e4):
+    ''' isotropic_external_pressure is in GPa'''
     from quippy.potential import Minim
     import numpy as np
 
     if isotropic_external_pressure == 0. or isotropic_external_pressure is None:
         pressure_tensor = None
     else:
-        pressure_tensor = np.eye(3) * isotropic_external_pressure
+        pressure_tensor = np.eye(3) * isotropic_external_pressure * GPa2eV_per_A3
 
     minimiser = Minim(crystal, relax_positions=relax_positions, relax_cell=True, logfile='-', method='fire',
                       external_pressure=pressure_tensor, eps_guess=0.2, fire_dt0=0.1, fire_dt_max=1.0, use_precond=None)
@@ -117,6 +120,7 @@ def vc_relax_qp( crystal, relax_positions=True,isotropic_external_pressure=None,
 
 
 def vc_relax_ase( crystal,relax_positions=True, isotropic_external_pressure=None,fmax=5e-3, steps=5e4):
+    ''' isotropic_external_pressure is in GPa'''
     from libs.custom_unitcellfilter import UnitCellFilter
     from ase.constraints import StrainFilter
     # from ase.constraints import FixAtoms
@@ -130,7 +134,7 @@ def vc_relax_ase( crystal,relax_positions=True, isotropic_external_pressure=None
         N = crystal.get_number_of_atoms()
         J = V ** (1 / 3.) * N ** (1 / 6.)
         ucf = UnitCellFilter(crystal, mask=[1, 1, 1, 1, 1, 1], cell_factor=V / J, hydrostatic_strain=False,
-                             constant_volume=False, isotropic_pressure=isotropic_external_pressure)
+                             constant_volume=False, isotropic_pressure=isotropic_external_pressure * GPa2eV_per_A3)
     else:
         ucf = StrainFilter(crystal)
     dyn = FIRE(ucf, logfile=None)
@@ -148,13 +152,21 @@ def get_LJ_parameters(crystal):
     # https://en.wikipedia.org/wiki/Gas_constant
     # https://en.wikipedia.org/wiki/Lennard-Jones_potential
     # https://en.wikipedia.org/wiki/Combining_rules
+    # using Lorentz-Berthelot rules to combine the LJ parameters
+
     atomic_nums = np.unique(crystal.get_atomic_numbers())
     fac = 2 ** (1. / 6.)
-    if len(atomic_nums) == 1:
-        sigmas = np.asarray([[2 * z2Covalentradius[atomic_nums[0]] / fac]])
-        epsilons = np.asarray([[1.0]])
-        cutoffs = 3. * sigmas
+    sigmas = {}
+    epsilons = {}
+    cutoffs = {}
+    for z1 in atomic_nums:
+        for z2 in atomic_nums:
+            sigma = np.mean([2 * z2Covalentradius[z1] / fac,2 * z2Covalentradius[z2] / fac,])
+            epsilon = np.sqrt([z2epsilon[z1],z2epsilon[z2]])
 
+            sigmas[z1,z2] = sigma
+            epsilons[z1,z2] = epsilon
+            cutoffs[z1,z2] = 3. * sigma
     return dict(sigmas=sigmas, epsilons=epsilons, cutoffs=cutoffs)
 
 
@@ -162,7 +174,7 @@ def make_LJ_input(crystal, LJ_parameters):
     atomic_nums = np.unique(crystal.get_atomic_numbers())
     n_types = len(atomic_nums)
     types = range(1, n_types + 1)
-    ids = range(n_types)
+
     sigmas, epsilons, cutoffs = LJ_parameters['sigmas'], LJ_parameters['epsilons'], LJ_parameters['cutoffs']
 
     param_str = []
@@ -170,12 +182,12 @@ def make_LJ_input(crystal, LJ_parameters):
     for tp, atomic_num in zip(types, atomic_nums):
         param_str.append('<per_type_data type="{}" atomic_num="{}" />'.format(tp, atomic_num))
 
-    for it, tp1, atomic_num1 in zip(ids, types, atomic_nums):
-        for jt, tp2, atomic_num2 in zip(ids, types, atomic_nums):
+    for  tp1, z1 in zip( types, atomic_nums):
+        for  tp2, z2 in zip( types, atomic_nums):
             if tp1 > tp2:
                 continue
             ss = '<per_pair_data type1="{}" type2="{}" sigma="{}" eps6="{}" eps12="{}" cutoff="{}" energy_shift="F" linear_force_shift="F" />'.format(
-                tp1, tp2, sigmas[it, jt], epsilons[it, jt], epsilons[it, jt], cutoffs[it, jt])
+                tp1, tp2, sigmas[z1,z2], epsilons[z1,z2], epsilons[z1,z2], cutoffs[z1,z2])
             param_str.append(ss)
 
     param_str.append('</LJ_params>')

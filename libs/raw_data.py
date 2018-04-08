@@ -51,10 +51,12 @@ z2Covalentradius = {1: 0.32, 2: 0.46, 3: 1.33, 4: 1.02, 5: 0.85, 6: 0.75, 7: 0.7
 # noble gas energy coef
 # https://www.hindawi.com/journals/jther/2013/828620/
 # in K
+K2eV = 8.6173303e-5
 z2eps = {2:5.465,10:36.831,18:116.81,36:164.56,54:218.18}
 
 # Formation energy from W. M. Haynes, Handbook of Chemistry and Physics 95th Edition, CRC Press, New York, 2014, ISBN-10: 1482208679, ISBN-13: 978-1482208672.
 # in kJ/mol
+kJ_per_mol2eV = 1./96.48533
 z2FormationEnergy = {1: 217.998, 2: None, 3: 159.3, 4: 324.0, 5: 565.0,
                      6: 716.87, 7: 472.44, 8: 249.229, 9: 79.335, 10: None,
                      11: 107.5, 12: 147.1, 13: 330.9, 14: 450.0, 15: 316.5,
@@ -72,6 +74,17 @@ z2FormationEnergy = {1: 217.998, 2: None, 3: 159.3, 4: 324.0, 5: 565.0,
                      72: 618.4, 73: 782.0, 74: 851.0, 75: 774.0, 76: 787.0,
                      77: 669.0, 78: 565.7, 79: 368.2, 80: 61.38, 81: 182.2,
                      82: 195.2, 83: 209.6}
+
+# LJ epsilon parameter for each species in eV from the 2 references above
+z2epsilon = {}
+for z,dH in z2FormationEnergy.iteritems():
+    if dH is None:
+        z2epsilon[z] = z2eps[z] * K2eV
+    else:
+        z2epsilon[z] = dH * kJ_per_mol2eV
+
+# 1 eV/Angstrom3 = 160.21766208 GPa
+GPa2eV_per_A3 = 1. / 160.21766208
 
 SG2BravaisLattice = \
     {1: 'triclinic P', 2: 'triclinic P', 3: 'monoclinic P', 4: 'monoclinic P',
