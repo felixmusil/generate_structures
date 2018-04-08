@@ -17,6 +17,7 @@ from libs.raw_data import z2symb,z2VdWradius,z2Covalentradius,SG2BravaisLattice,
 
 import sys
 sys.path.insert(0,'/local/git/glosim2/')
+sys.path.insert(0,'/home/musil/git/glosim2/')
 from libmatch.soap import get_Soaps
 from libmatch.utils import get_soapSize,get_spkit,get_spkitMax,ase2qp,qp2ase
 from libmatch.chemical_kernel import deltaKernel,PartialKernels
