@@ -53,20 +53,23 @@ def LJ_vcrelax(crystal,isotropic_external_pressure=1e-2,debug=False):
 
     return crystal
 
-def LJ_vcrelax_alternative(crystal,isotropic_external_pressure=1e-2,debug=False):
+
+def LJ_vcrelax_alternative(crystal, isotropic_external_pressure=20, debug=False):
     ''' isotropic_external_pressure is in GPa'''
     from quippy.potential import Potential
-
 
     # do a copy and change the object type
     dd = ase2qp(crystal)
 
     # get the string to setup the quippy LJ potential (parameters and species)
     LJ_parameters = get_LJ_parameters(dd)
-    max_cutoff = LJ_parameters['cutoffs'].max()
+    max_cutoff = max(LJ_parameters['cutoffs'].values()) * 1.1
     param_str = make_LJ_input(dd, LJ_parameters)
 
     pot = Potential('IP LJ', param_str=param_str)
+
+    sites_z = np.unique(crystal.get_atomic_numbers())
+    thr = np.min([z2Covalentradius[z] for z in sites_z])
 
     # supress output from quippy minimisation routine
     with stdchannel_to_null(disable=debug):
@@ -76,13 +79,17 @@ def LJ_vcrelax_alternative(crystal,isotropic_external_pressure=1e-2,debug=False)
         sep = AtomSeparator(dd)
         sep.run(Nmax=20)
 
-        #dd = vc_relax_ase(dd, fmax=1e1, steps=1e5)
-        vc_relax_ase(dd, isotropic_external_pressure=isotropic_external_pressure,
-                     fmax=5e-2, steps=1e4)
+        # dd = vc_relax_ase(dd, fmax=1e1, steps=1e5)
+        for iii in range(100):
+            if isLayered(dd, cutoff=thr * 1.5, aspect_ratio=0.75):
+                vc_relax_ase(dd, fmax=5e-1, steps=1e4)
 
+                vc_relax_ase(dd, isotropic_external_pressure=isotropic_external_pressure,
+                             relax_positions=False, fmax=5e-5, steps=1e3)
+            else:
+                break
 
-
-        vc_relax_ase(dd, fmax=5e-3, steps=1e4)
+        vc_relax_ase(dd, fmax=5e-4, steps=1e4)
         # dd = vc_relax_ase(dd, fmax=1e1, steps=1e5)
         # ## 1st round of vc relax with external isotropic pressure
         # # if isLayered(dd):
@@ -118,29 +125,32 @@ def vc_relax_qp( crystal, relax_positions=True,isotropic_external_pressure=None,
     return crystal
 
 
-
-def vc_relax_ase( crystal,relax_positions=True, isotropic_external_pressure=None,fmax=5e-3, steps=5e4):
+def vc_relax_ase(crystal, relax_positions=True, isotropic_external_pressure=None, fmax=5e-3, steps=5e4):
     ''' isotropic_external_pressure is in GPa'''
-    from libs.custom_unitcellfilter import UnitCellFilter
-    from ase.constraints import StrainFilter
+    from libs.custom_unitcellfilter import UnitCellFilter, StrainFilter
+    from libs.raw_data import GPa2eV_per_A3
+    # from ase.constraints import StrainFilter
     # from ase.constraints import FixAtoms
     from ase.optimize import FIRE
 
     # if relax_positions is False:
     #     c = FixAtoms(mask=[True,]*crystal.get_number_of_atoms())
     #     crystal.set_constraint(c)
+    if isotropic_external_pressure is not None:
+        isotropic_external_pressure *= GPa2eV_per_A3
+
     if relax_positions:
         V = crystal.get_volume()
         N = crystal.get_number_of_atoms()
         J = V ** (1 / 3.) * N ** (1 / 6.)
         ucf = UnitCellFilter(crystal, mask=[1, 1, 1, 1, 1, 1], cell_factor=V / J, hydrostatic_strain=False,
-                             constant_volume=False, isotropic_pressure=isotropic_external_pressure * GPa2eV_per_A3)
+                             constant_volume=False,
+                             isotropic_pressure=isotropic_external_pressure)
     else:
-        ucf = StrainFilter(crystal)
+        ucf = StrainFilter(crystal, isotropic_pressure=isotropic_external_pressure)
     dyn = FIRE(ucf, logfile=None)
 
     dyn.run(fmax=fmax, steps=steps)
-
 
     crystal.wrap()
 
@@ -161,8 +171,8 @@ def get_LJ_parameters(crystal):
     cutoffs = {}
     for z1 in atomic_nums:
         for z2 in atomic_nums:
-            sigma = np.mean([2 * z2Covalentradius[z1] / fac,2 * z2Covalentradius[z2] / fac,])
-            epsilon = np.sqrt([z2epsilon[z1],z2epsilon[z2]])
+            sigma = np.mean([2 * z2Covalentradius[z1] / fac,2 * z2Covalentradius[z2] / fac])
+            epsilon = np.sqrt(np.multiply(z2epsilon[z1],z2epsilon[z2]))
 
             sigmas[z1,z2] = sigma
             epsilons[z1,z2] = epsilon

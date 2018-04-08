@@ -232,12 +232,12 @@ def generate_crystal(sites_z):
 
     crystal = unskewCell(crystal)
 
-    crystal = LJ_vcrelax_alternative(crystal, isotropic_external_pressure=1e-2, debug=False)
+    crystal = LJ_vcrelax_alternative(crystal, isotropic_external_pressure=20, debug=True)
 
-    thr = np.min([z2Covalentradius[z] for z in sites_z])
+    #     thr = np.min([z2Covalentradius[z] for z in sites_z])
 
-    if isLayered(crystal, cutoff=thr * 1.5, aspect_ratio=0.75):
-        crystal = LJ_vcrelax_alternative(crystal, isotropic_external_pressure=1e-1, debug=False)
+    #     if isLayered(crystal,cutoff=thr*1.5, aspect_ratio=0.75):
+    #         crystal = LJ_vcrelax_alternative(crystal, isotropic_external_pressure=2, debug=True)
 
     return crystal
 
@@ -247,6 +247,9 @@ from Pool.mpi_pool import MPIPool
 if __name__ == '__main__':
 
     pool = MPIPool()
+    seed = 10
+    print seed+pool.rank
+    np.random.seed(seed+pool.rank)
 
     if not pool.is_master():
         pool.wait()
@@ -254,40 +257,44 @@ if __name__ == '__main__':
 
 
 
-    with open('./structures/structures_downsampled.pck', 'rb') as f:
-        crystals = pck.load(f)
+    # with open('./structures/structures_downsampled.pck', 'rb') as f:
+    #     crystals = pck.load(f)
 
 
-    np.random.seed(10)
+    # np.random.seed(10)
 
     sites_z = [14]
 
-    new_cc = pool.map(generate_crystal,[sites_z for it in range(500)],disable_pbar=False)
+    new_cc = pool.map(generate_crystal,[sites_z for it in range(10000)])
 
-    soap_params = dict(nmax=9, cutoff=4, gaussian_width=0.4, lmax=9,
-                       centerweight=1., cutoff_transition_width=0.5,
-                       nocenters=[], is_fast_average=True, chem_channels=False, dispbar=True
-                       )
-    nprocess = 1
+    # from ase.visualize import view
+    #
+    # view(new_cc)
 
-    new_crystals = []
-    new_crystals.extend(crystals)
-    new_crystals.extend(new_cc)
-
-    fings = get_fingerprints([ase2qp(crystal) for crystal in new_crystals], soap_params, nprocess)
-    kernel = np.dot(fings, fings.T)
-
-    fps_ids, minmax = fpsSelection_with_restart(data=kernel, distance_func=distance_func2, restart_ref=None,
-                                                disable_pbar=True, nthread=10,
-                                                intermediate_copy=True, stride=10000,
-                                                threshold=5e-3, Nmin=0,
-                                                Nmax=kernel.shape[0], seed=None,
-                                                fn=None)
-
-    new_crystals = [new_crystals[it] for it in fps_ids]
-
+    # soap_params = dict(nmax=9, cutoff=4, gaussian_width=0.4, lmax=9,
+    #                    centerweight=1., cutoff_transition_width=0.5,
+    #                    nocenters=[], is_fast_average=True, chem_channels=False, dispbar=True
+    #                    )
+    # nprocess = 1
+    #
+    # new_crystals = []
+    # new_crystals.extend(crystals)
+    # new_crystals.extend(new_cc)
+    #
+    # fings = get_fingerprints([ase2qp(crystal) for crystal in new_crystals], soap_params, nprocess)
+    # kernel = np.dot(fings, fings.T)
+    #
+    # fps_ids, minmax = fpsSelection_with_restart(data=kernel, distance_func=distance_func2, restart_ref=None,
+    #                                             disable_pbar=True, nthread=10,
+    #                                             intermediate_copy=True, stride=10000,
+    #                                             threshold=5e-3, Nmin=0,
+    #                                             Nmax=kernel.shape[0], seed=None,
+    #                                             fn=None)
+    #
+    # new_crystals = [new_crystals[it] for it in fps_ids]
+    #
     with open('./structures/structures_new.pck', 'wb') as f:
-        pck.dump(new_crystals, f, protocol=pck.HIGHEST_PROTOCOL)
+        pck.dump(new_cc, f, protocol=pck.HIGHEST_PROTOCOL)
 
 
     pool.close()

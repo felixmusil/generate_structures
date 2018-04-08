@@ -137,12 +137,14 @@ def isLayered(frame, cutoff=1.5, aspect_ratio=0.5, debug=False):
 
     crystal = qp2ase(frame)
     length = crystal.get_cell_lengths_and_angles()[:3]
-
+    scaled = crystal.get_scaled_positions()
     rr = np.ones(3, int)
 
     for it in range(3):
+        min, max = np.min(scaled[:, it]), np.max(scaled[:, it])
+        mask2 = (max - min) < (1 - aspect_ratio)
         mask = length / length[it] < aspect_ratio
-        if np.any(mask):
+        if np.any(mask) or mask2:
             rr[it] = 2
 
     crystal = crystal.repeat(list(rr))
