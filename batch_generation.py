@@ -8,7 +8,7 @@ from ase.visualize import view
 import cPickle as pck
 import pandas as pd
 from tqdm import tqdm
-from processify import processify
+from libs.processify import processify
 
 from libs.utils import unskewCell,ase2qp,qp2ase,get_standard_frame,isLayered
 from libs.input_structure import input2crystal,getCellParam
