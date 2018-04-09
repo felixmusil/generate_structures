@@ -25,6 +25,7 @@ from GlobalSimilarity import get_environmentalKernels,get_globalKernel
 
 d2r = np.pi/180.
 
+from glob import glob
 
 def get_Nsoap(spkitMax, nmax, lmax):
     Nsoap = 0
@@ -132,7 +133,7 @@ def distance_func2(kernel):
     return distance
 
 
-def fpsSelection_with_restart(data=None, distance_func=None, restart_ref=None, disable_pbar=False, nthread=10,
+def fpsSelection_with_restart(data=None, distance_func=None, restart_ref=None, disable_pbar=True, nthread=10,
                               intermediate_copy=True, stride=100, threshold=3e-3, Nmin=0, Nmax=20, seed=None, fn=None):
     import numpy.random as npr
     import cPickle as pck
@@ -143,8 +144,8 @@ def fpsSelection_with_restart(data=None, distance_func=None, restart_ref=None, d
     except:
         pass
 
-    # if fn is None:
-    #     fn = 'restart_ref_thr{}.pck'.format(threshold)
+    if fn is None:
+        fn = 'restart_ref_thr{}.pck'.format(threshold)
 
     nbOfFrames, Nfeature = data.shape
 
@@ -177,13 +178,13 @@ def fpsSelection_with_restart(data=None, distance_func=None, restart_ref=None, d
 
     Nidx = len(LandmarksIdx)
     cond = True
-    pbar = tqdm(total=Nmax, disable=disable_pbar)
+    pbar = tqdm_notebook(total=Nmax, disable=disable_pbar)
 
     while cond:
 
         LandmarksIdx.append(isel)
 
-        if Nidx % (stride - 1) == 0 and fn is not None:
+        if Nidx % (stride - 1) == 0:
             with open(fn, 'wb') as f:
                 pck.dump({'LandmarksIdx': LandmarksIdx, 'ldist': ldist, 'minmax': minmax}, f,
                          protocol=pck.HIGHEST_PROTOCOL)
@@ -247,11 +248,16 @@ def generate_crystal(sites_z):
 
     kwargs = dict(sg=sg, wyckoff_letters=wyckoff_letters,sites_z=sites_z)
     kwargs.update(**atoms2dict(initial_crystal))
-    sym_data = spg.get_symmetry_dataset(crystal)
-    kwargs.update(**dict(sg_spg=sym_data['number'], wyckoffs_spg=sym_data['wyckoffs'], equivalent_atoms_spg=sym_data['equivalent_atoms']))
-    fout.dump_frames([crystal], [kwargs])
+    if crystal is not None:
+        sym_data = spg.get_symmetry_dataset(crystal)
+        kwargs.update(**dict(sg_spg=sym_data['number'], wyckoffs_spg=sym_data['wyckoffs'], equivalent_atoms_spg=sym_data['equivalent_atoms']))
+        fout.dump_frames([crystal], [kwargs])
 
-    return True
+        return True
+    else:
+        rank = comm.Get_rank()
+        print 'Worker {} failed to process {}'.format(rank,atoms2dict(initial_crystal))
+        return False
 
 def atoms2dict(crystal):
     positions = crystal.get_positions()
@@ -262,16 +268,18 @@ def atoms2dict(crystal):
 
 from Pool.mpi_pool import MPIPool
 from libs.io import Frame_Dataset_h5
+from time import ctime
 
 if __name__ == '__main__':
 
     pool = MPIPool()
-    seed = 100
+    seed = 1000
     print seed+pool.rank
     np.random.seed(seed+pool.rank)
 
     comm = pool.comm
-    basename = './structures/relaxed_structures_r'
+    basedir = './structures/iterative_gen/'
+    basename = basedir+'relaxed_structures_'
 
     if not pool.is_master():
         rank = comm.Get_rank()
@@ -281,47 +289,65 @@ if __name__ == '__main__':
         sys.exit(0)
 
 
+    Nworker = pool.size
+    readers = {}
+    for rank in range(1,Nworker+1):
+        readers[rank] = Frame_Dataset_h5(basename + str(rank) + '-0.h5', mode='r', disable_pbar=True)
 
-    # with open('./structures/structures_downsampled.pck', 'rb') as f:
-    #     crystals = pck.load(f)
+    frame_names = {}
+    for rank, reader in readers.iteritems():
+        frame_names[rank] = [] # reader.get_names()
 
-
-    # np.random.seed(10)
 
     sites_z = [14]
 
-    new_cc = pool.map(generate_crystal,[sites_z for it in range(10000)])
+    crystal_name = basedir+'structures_downsampled_'
 
-    # from ase.visualize import view
-    #
-    # view(new_cc)
+    for iiii in range(10):
 
-    # soap_params = dict(nmax=9, cutoff=4, gaussian_width=0.4, lmax=9,
-    #                    centerweight=1., cutoff_transition_width=0.5,
-    #                    nocenters=[], is_fast_average=True, chem_channels=False, dispbar=True
-    #                    )
-    # nprocess = 1
-    #
-    # new_crystals = []
-    # new_crystals.extend(crystals)
-    # new_crystals.extend(new_cc)
-    #
-    # fings = get_fingerprints([ase2qp(crystal) for crystal in new_crystals], soap_params, nprocess)
-    # kernel = np.dot(fings, fings.T)
-    #
-    # fps_ids, minmax = fpsSelection_with_restart(data=kernel, distance_func=distance_func2, restart_ref=None,
-    #                                             disable_pbar=True, nthread=10,
-    #                                             intermediate_copy=True, stride=10000,
-    #                                             threshold=5e-3, Nmin=0,
-    #                                             Nmax=kernel.shape[0], seed=None,
-    #                                             fn=None)
-    #
-    # new_crystals = [new_crystals[it] for it in fps_ids]
-    #
+        with open(crystal_name + str(iiii) + '.pck', 'rb') as f:
+            old_crystals = pck.load(f)
 
+        pool.map(generate_crystal,[sites_z for it in range(100)])
 
-    # with open('./structures/structures_new.pck', 'wb') as f:
-    #     pck.dump(new_cc, f, protocol=pck.HIGHEST_PROTOCOL)
+        print ctime()
+        print 'Finished {} iterations'.format(iiii)
 
+        new_frames = []
+        for rank, reader in readers.iteritems():
+            new_names = []
+            names = reader.get_names()
+            for name in names:
+                if name not in frame_names[rank]:
+                    new_names.append(name)
+                    frame_names[rank].append(name)
+
+            new_frames.extend(reader.load_frames(names=new_names).values())
+
+        new_crystals = []
+        new_crystals.extend(new_frames)
+        new_crystals.extend(old_crystals)
+
+        soap_params = dict(nmax=9, cutoff=4, gaussian_width=0.4, lmax=9,
+                           centerweight=1., cutoff_transition_width=0.5,
+                           nocenters=[], is_fast_average=True, chem_channels=False, dispbar=False
+                           )
+        nprocess = 4
+
+        fings = get_fingerprints([ase2qp(crystal) for crystal in new_crystals], soap_params, nprocess)
+
+        kernel = np.dot(fings, fings.T)
+
+        fps_ids, minmax = fpsSelection_with_restart(data=kernel, distance_func=distance_func2, restart_ref=None,
+                                                disable_pbar=True, nthread=10,
+                                                intermediate_copy=True, stride=10000, threshold=1e-3, Nmin=0,
+                                                Nmax=kernel.shape[0], seed=None,
+                                                fn=None)
+
+        with open(crystal_name + '_' + str(iiii+1) + '.pck', 'rb') as f:
+            pck.dump([new_crystals[it] for it in fps_ids],f)
+
+        print ctime()
+        print 'Selected new structures, iteration {}'.format(iiii)
 
     pool.close()
