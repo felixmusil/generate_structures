@@ -245,10 +245,23 @@ def generate_crystal(sites_z):
         crystal = LJ_vcrelax_alternative(crystal, isotropic_external_pressure=200, debug=True)
         crystal = unskewCell(crystal)
 
-    return crystal,initial_crystal,sg, wyckoff_letters
+    kwargs = dict(sg=sg, wyckoff_letters=wyckoff_letters,sites_z=sites_z)
+    kwargs.update(**atoms2dict(initial_crystal))
+    sym_data = spg.get_symmetry_dataset(crystal)
+    kwargs.update(**dict(sg_spg=sym_data['number'], wyckoffs_spg=sym_data['wyckoffs'], equivalent_atoms_spg=sym_data['equivalent_atoms']))
+    fout.dump_frames([crystal], [kwargs])
 
+    return True
+
+def atoms2dict(crystal):
+    positions = crystal.get_positions()
+    cell = crystal.get_cell()
+    numbers = crystal.get_atomic_numbers()
+    pbc = crystal.get_pbc()
+    return dict(numbers=numbers, cell=cell, positions=positions, pbc=pbc)
 
 from Pool.mpi_pool import MPIPool
+from libs.io import Frame_Dataset_h5
 
 if __name__ == '__main__':
 
@@ -257,7 +270,13 @@ if __name__ == '__main__':
     print seed+pool.rank
     np.random.seed(seed+pool.rank)
 
+    comm = pool.comm
+    basename = './structures/relaxed_structures_r'
+
     if not pool.is_master():
+        rank = comm.Get_rank()
+        fout = Frame_Dataset_h5(basename + str(rank) + '.h5')
+        print 'Dumping structures to {}\n'.format(fout.fname)
         pool.wait()
         sys.exit(0)
 
@@ -271,7 +290,7 @@ if __name__ == '__main__':
 
     sites_z = [14]
 
-    new_cc = pool.map(generate_crystal,[sites_z for it in range(5000)])
+    new_cc = pool.map(generate_crystal,[sites_z for it in range(10000)])
 
     # from ase.visualize import view
     #
@@ -301,8 +320,8 @@ if __name__ == '__main__':
     #
 
 
-    with open('./structures/structures_new.pck', 'wb') as f:
-        pck.dump(new_cc, f, protocol=pck.HIGHEST_PROTOCOL)
+    # with open('./structures/structures_new.pck', 'wb') as f:
+    #     pck.dump(new_cc, f, protocol=pck.HIGHEST_PROTOCOL)
 
 
     pool.close()

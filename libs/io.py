@@ -75,7 +75,7 @@ class Frame_Dataset_h5(object):
         if inp_dict is not None:
             sgrp = grp.create_group("inputs")
             for name ,val in inp_dict.iteritems():
-                sgrp.create_dataset(name, data=np.array(val))
+                sgrp.create_dataset(name, data=np.asarray(val))
         self.counter += 1
 
         if to_close:
@@ -126,6 +126,41 @@ class Frame_Dataset_h5(object):
 
         return frames
 
+    def get_inputs(self, names=None, frame_type='quippy'):
+        if names is None:
+            names = self.get_names()
+        inputs = {}
+        with h5py.File(self.fname, "r" ,libver='latest', swmr=self.swmr_mode) as f:
+            for name in tqdm_cs(names,desc='Load frames',disable=self.disable_pbar):
+                inputs[name] = self.get_input(name,frame_type=frame_type,f=f)
+
+        return inputs
+
+
+
+    def get_input(self,name ,frame_type='quippy',f = None):
+        to_close = False
+        if f is None and self.isOpen is True:
+            f = self.f
+        elif f is None and self.isOpen is False:
+            self.open(mode='r')
+            f = self.f
+            to_close = True
+
+        data = {}
+        for field in self.frame_fields:
+            data[field] = f[name]['inputs'][field].value
+
+        if frame_type == 'quippy':
+            frame_inp = qpAtoms(**data)
+        elif frame_type == 'ase':
+            frame_inp = aseAtoms(**data)
+
+        data = {}
+        for field in ['sg','wyckoff_letters','sites_z','sg_spg','wyckoffs_spg','equivalent_atoms_spg']:
+            data[field] = f[name]['inputs'][field].value
+
+        return frame_inp,data
 
 descriptor_parameters = {
     'soap':['nmax','lmax','cutoff','gaussian_width',
