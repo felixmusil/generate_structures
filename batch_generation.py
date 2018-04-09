@@ -8,7 +8,7 @@ from ase.visualize import view
 import cPickle as pck
 import pandas as pd
 from tqdm import tqdm
-
+from processify import processify
 
 from libs.utils import unskewCell,ase2qp,qp2ase,get_standard_frame,isLayered
 from libs.input_structure import input2crystal,getCellParam
@@ -228,7 +228,7 @@ def fpsSelection_with_restart(data=None, distance_func=None, restart_ref=None, d
     pbar.close()
     return LandmarksIdx, minmax
 
-
+@processify(timeout=60*4)
 def generate_crystal(sites_z):
     crystal, sg, wyckoff_letters = input2crystal(sites_z)
 
@@ -248,15 +248,26 @@ def generate_crystal(sites_z):
 
     kwargs = dict(sg=sg, wyckoff_letters=wyckoff_letters,sites_z=sites_z)
     kwargs.update(**atoms2dict(initial_crystal))
-    if crystal is not None:
-        sym_data = spg.get_symmetry_dataset(crystal)
-        kwargs.update(**dict(sg_spg=sym_data['number'], wyckoffs_spg=sym_data['wyckoffs'], equivalent_atoms_spg=sym_data['equivalent_atoms']))
-        fout.dump_frames([crystal], [kwargs])
 
-        return True
-    else:
+    return crystal,kwargs
+
+def generate_crystal_wrapper(sites_z):
+    import traceback
+    try:
+        crystal,kwargs = generate_crystal(sites_z)
+        if crystal is not None:
+            sym_data = spg.get_symmetry_dataset(crystal)
+            kwargs.update(**dict(sg_spg=sym_data['number'], wyckoffs_spg=sym_data['wyckoffs'], equivalent_atoms_spg=sym_data['equivalent_atoms']))
+            fout.dump_frames([crystal], [kwargs])
+            return True
+        else:
+            rank = comm.Get_rank()
+            print 'Worker {} failed to process {}'.format(rank,atoms2dict(kwargs))
+            return False
+    except:
         rank = comm.Get_rank()
-        print 'Worker {} failed to process {}'.format(rank,atoms2dict(initial_crystal))
+        print 'Worker {} failed'.format(rank)
+        print traceback.format_exc()
         return False
 
 def atoms2dict(crystal):
@@ -288,6 +299,8 @@ if __name__ == '__main__':
         pool.wait()
         sys.exit(0)
 
+
+    QMAT_id = 1
     Nworker = pool.size
 
     frame_names = {}
@@ -301,12 +314,13 @@ if __name__ == '__main__':
 
     for iiii in range(10):
 
+        print ctime()
         with open(crystal_name + str(iiii) + '.pck', 'rb') as f:
             old_crystals = pck.load(f)
 
-        pool.map(generate_crystal,[sites_z for it in range(100)])
+        pool.map(generate_crystal_wrapper,[sites_z for it in range(100)])
 
-        print ctime()
+
         print 'Finished iteration {}'.format(iiii)
 
         readers = {}
@@ -314,6 +328,7 @@ if __name__ == '__main__':
             readers[rank] = Frame_Dataset_h5(basename + str(rank) + '-0.h5', mode='r', disable_pbar=True)
 
         new_frames = []
+        inputs = []
         for rank, reader in readers.iteritems():
             new_names = []
             names = reader.get_names()
@@ -322,7 +337,14 @@ if __name__ == '__main__':
                     new_names.append(name)
                     frame_names[rank].append(name)
 
-            new_frames.extend(reader.load_frames(names=new_names).values())
+            ffs = reader.load_frames(names=new_names,frame_type='quippy').values()
+            inps = reader.get_inputs(names=new_names,frame_type='ase').values()
+
+            for ff,inp in zip(ffs,inps):
+                equivalent_atoms = inp[1]['equivalent_atoms_spg']
+                # wyckoffs = inp[1]['wyckoffs_spg']
+                if len(np.unique(equivalent_atoms)) == QMAT_id:
+                    new_frames.append(ff)
 
         new_crystals = []
         new_crystals.extend(new_frames)
@@ -347,7 +369,7 @@ if __name__ == '__main__':
         with open(crystal_name +  str(iiii+1) + '.pck', 'wb') as f:
             pck.dump([new_crystals[it] for it in fps_ids],f,protocol=pck.HIGHEST_PROTOCOL)
 
-        print ctime()
+        # print ctime()
         print 'Selected new structures, iteration {}'.format(iiii)
 
     pool.close()
