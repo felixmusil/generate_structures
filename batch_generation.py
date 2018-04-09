@@ -271,7 +271,7 @@ if __name__ == '__main__':
 
     sites_z = [14]
 
-    new_cc = pool.map(generate_crystal,[sites_z for it in range(100)])
+    new_cc = pool.map(generate_crystal,[sites_z for it in range(5000)])
 
     # from ase.visualize import view
     #
