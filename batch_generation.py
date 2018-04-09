@@ -271,7 +271,7 @@ if __name__ == '__main__':
 
     sites_z = [14]
 
-    new_cc = pool.map(generate_crystal,[sites_z for it in range(10000)])
+    new_cc = pool.map(generate_crystal,[sites_z for it in range(100)])
 
     # from ase.visualize import view
     #
@@ -299,6 +299,8 @@ if __name__ == '__main__':
     #
     # new_crystals = [new_crystals[it] for it in fps_ids]
     #
+
+
     with open('./structures/structures_new.pck', 'wb') as f:
         pck.dump(new_cc, f, protocol=pck.HIGHEST_PROTOCOL)
 
