@@ -252,23 +252,24 @@ def generate_crystal(sites_z):
     return crystal,kwargs
 
 def generate_crystal_wrapper(sites_z):
-    import traceback
+
     try:
         crystal,kwargs = generate_crystal(sites_z)
         if crystal is not None:
             sym_data = spg.get_symmetry_dataset(crystal)
             kwargs.update(**dict(sg_spg=sym_data['number'], wyckoffs_spg=sym_data['wyckoffs'], equivalent_atoms_spg=sym_data['equivalent_atoms']))
             fout.dump_frames([crystal], [kwargs])
-            return True
+            return 1
         else:
             rank = comm.Get_rank()
             print 'Worker {} failed to process {}'.format(rank,atoms2dict(kwargs))
-            return False
+            return 0
     except:
+        import traceback
         rank = comm.Get_rank()
         print 'Worker {} failed'.format(rank)
         print traceback.format_exc()
-        return False
+        return 0
 
 def atoms2dict(crystal):
     positions = crystal.get_positions()
@@ -318,8 +319,10 @@ if __name__ == '__main__':
         with open(crystal_name + str(iiii) + '.pck', 'rb') as f:
             old_crystals = pck.load(f)
 
-        pool.map(generate_crystal_wrapper,[sites_z for it in range(100)])
+        res = pool.map(generate_crystal_wrapper,[sites_z for it in range(10000)])
 
+        res = np.array(res)
+        print res[res==0].shape
 
         print 'Finished iteration {}'.format(iiii)
 
