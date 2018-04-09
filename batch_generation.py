@@ -307,7 +307,7 @@ if __name__ == '__main__':
         pool.map(generate_crystal,[sites_z for it in range(100)])
 
         print ctime()
-        print 'Finished {} iterations'.format(iiii)
+        print 'Finished iteration {}'.format(iiii)
 
         readers = {}
         for rank in range(1, Nworker + 1):
@@ -344,8 +344,8 @@ if __name__ == '__main__':
                                                 Nmax=kernel.shape[0], seed=None,
                                                 fn=None)
 
-        with open(crystal_name +  str(iiii+1) + '.pck', 'rb') as f:
-            pck.dump([new_crystals[it] for it in fps_ids],f)
+        with open(crystal_name +  str(iiii+1) + '.pck', 'wb') as f:
+            pck.dump([new_crystals[it] for it in fps_ids],f,protocol=pck.HIGHEST_PROTOCOL)
 
         print ctime()
         print 'Selected new structures, iteration {}'.format(iiii)
