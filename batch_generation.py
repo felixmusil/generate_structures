@@ -266,7 +266,7 @@ from libs.io import Frame_Dataset_h5
 if __name__ == '__main__':
 
     pool = MPIPool()
-    seed = 10
+    seed = 100
     print seed+pool.rank
     np.random.seed(seed+pool.rank)
 
