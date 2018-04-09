@@ -6,7 +6,7 @@ from raw_data import z2Covalentradius,separationData,z2epsilon,GPa2eV_per_A3
 from utils import stdchannel_to_null
 from scipy.spatial.distance import pdist,cdist,squareform
 from ase.neighborlist import NeighborList
-
+import gc
 timeout = 10
 
 def LJ_vcrelax(crystal,isotropic_external_pressure=1e-2,debug=False):
@@ -100,8 +100,10 @@ def LJ_vcrelax_alternative(crystal, isotropic_external_pressure=20, debug=False)
         ## 2nd round of relaxation without external pressure
         # crystal = vc_relax_qp(dd,fmax=7e-5, steps=1e5)
         # vc_relax_qp(dd, fmax=5e-3, steps=1e5)
-
-    return qp2ase(dd)
+    cc = qp2ase(dd)
+    del dd
+    gc.collect()
+    return cc
 
 
 # @processify(timeout=timeout)
