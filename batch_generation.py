@@ -184,10 +184,10 @@ def fpsSelection_with_restart(data=None, distance_func=None, restart_ref=None, d
 
         LandmarksIdx.append(isel)
 
-        if Nidx % (stride - 1) == 0:
-            with open(fn, 'wb') as f:
-                pck.dump({'LandmarksIdx': LandmarksIdx, 'ldist': ldist, 'minmax': minmax}, f,
-                         protocol=pck.HIGHEST_PROTOCOL)
+        # if Nidx % (stride - 1) == 0:
+        #     with open(fn, 'wb') as f:
+        #         pck.dump({'LandmarksIdx': LandmarksIdx, 'ldist': ldist, 'minmax': minmax}, f,
+        #                  protocol=pck.HIGHEST_PROTOCOL)
 
         Nidx += 1
         idx_to_compute[isel] = False
@@ -268,7 +268,7 @@ def atoms2dict(crystal):
 
 from Pool.mpi_pool import MPIPool
 from libs.io import Frame_Dataset_h5
-from time import ctime
+from time import ctime,sleep
 
 if __name__ == '__main__':
 
@@ -288,14 +288,10 @@ if __name__ == '__main__':
         pool.wait()
         sys.exit(0)
 
-
     Nworker = pool.size
-    readers = {}
-    for rank in range(1,Nworker+1):
-        readers[rank] = Frame_Dataset_h5(basename + str(rank) + '-0.h5', mode='r', disable_pbar=True)
 
     frame_names = {}
-    for rank, reader in readers.iteritems():
+    for rank in range(1, Nworker + 1):
         frame_names[rank] = [] # reader.get_names()
 
 
@@ -312,6 +308,10 @@ if __name__ == '__main__':
 
         print ctime()
         print 'Finished {} iterations'.format(iiii)
+
+        readers = {}
+        for rank in range(1, Nworker + 1):
+            readers[rank] = Frame_Dataset_h5(basename + str(rank) + '-0.h5', mode='r', disable_pbar=True)
 
         new_frames = []
         for rank, reader in readers.iteritems():
