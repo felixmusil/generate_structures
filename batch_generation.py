@@ -273,7 +273,7 @@ from time import ctime,sleep
 if __name__ == '__main__':
 
     pool = MPIPool()
-    seed = 1000
+    seed = 10
     print seed+pool.rank
     np.random.seed(seed+pool.rank)
 
@@ -344,7 +344,7 @@ if __name__ == '__main__':
                                                 Nmax=kernel.shape[0], seed=None,
                                                 fn=None)
 
-        with open(crystal_name + '_' + str(iiii+1) + '.pck', 'rb') as f:
+        with open(crystal_name +  str(iiii+1) + '.pck', 'rb') as f:
             pck.dump([new_crystals[it] for it in fps_ids],f)
 
         print ctime()
