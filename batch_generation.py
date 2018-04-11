@@ -285,12 +285,12 @@ from time import ctime,sleep
 if __name__ == '__main__':
 
     pool = MPIPool()
-    seed = 10
+    seed = 100
     print seed+pool.rank
     np.random.seed(seed+pool.rank)
 
     comm = pool.comm
-    basedir = './structures/iterative_gen/'
+    basedir = './structures/iterative_gen_1/'
     basename = basedir+'relaxed_structures_'
 
     if not pool.is_master():
@@ -313,7 +313,7 @@ if __name__ == '__main__':
 
     crystal_name = basedir+'structures_downsampled_'
 
-    for iiii in range(10):
+    for iiii in range(50):
 
         print ctime()
         with open(crystal_name + str(iiii) + '.pck', 'rb') as f:
@@ -373,6 +373,6 @@ if __name__ == '__main__':
             pck.dump([new_crystals[it] for it in fps_ids],f,protocol=pck.HIGHEST_PROTOCOL)
 
         # print ctime()
-        print 'Selected new structures, iteration {}'.format(iiii)
+        print 'Selected new {} structures, iteration {}'.format(len(fps_ids),iiii)
 
     pool.close()
